@@ -1,0 +1,72 @@
+# JOY UNIVERSITY BUS TRACKING
+
+A responsive Flask + SQLite development starter with an improved navy/blue dashboard, the supplied JOY University logo, an OpenStreetMap-based map, bus/route records, CSV/XLSX imports, CSV exports, role-based views, and authenticated GPS ingestion.
+
+## Quick start (Windows)
+1. Extract the ZIP completely.
+2. Double-click `START_WEBSITE.bat`.
+3. Allow Python through any local firewall prompt if you trust this application.
+4. Open `http://127.0.0.1:5000`.
+
+Requires Python 3 and internet access for first-run package installation and map tiles. If browser auto-open is blocked, open the URL manually. Keep the terminal window open while using the app.
+
+## Development demo logins
+- Admin: `admin` / `Admin@123`
+- Transport manager: `manager` / `Manager@123`
+- Security: `security` / `Security@123`
+- Driver: `driver` / `Driver@123`
+- Student: `student` / `Student@123`
+
+These are development-only accounts. Change/remove them before any real deployment. Student and driver demo accounts are included because the requested workflow asked for all role options; the main management interface is admin-oriented.
+
+## Important data and GPS behavior
+- The ten starter buses and route names are setup records, not proof of an official route assignment.
+- No fake coordinates are seeded. If a bus has no GPS data, the UI says `NOT CONNECTED`.
+- The map uses Leaflet and OpenStreetMap tiles and requires internet access. If tiles do not load, check internet/firewall access. Attribution is displayed on the map.
+- External tracking devices can POST JSON to `/api/tracking/location` with header `X-Tracking-Token`. Set `TRACKING_API_TOKEN` in the server environment first. Required JSON keys: `bus_id`, `latitude`, `longitude`; optional `speed`, `heading`, `accuracy`, `timestamp` (ISO-8601), `device_id`.
+- A logged-in driver assigned to a bus can use the browser's GPS share controls. Browser geolocation requires localhost or HTTPS, permission, and an assigned bus. Never present stale locations as live.
+- Route coordinates, official stop coordinates, exact route geometry, traffic-based ETA, SMTP email, web push, and production 3D maps are not claimed to be implemented. Verify routes/stops with the transport office before real operations.
+
+## Imports
+The import page supports category CSV and `.xlsx` files, up to 8 MB. Download the provided templates. Unique bus numbers, route IDs, and student register numbers prevent duplicate inserts; existing records are updated. Failed rows are reported in the response. The `.xlsx` importer looks for a sheet named `Buses`, `Routes`, or `Students` for the selected category; otherwise it uses the first sheet.
+
+## Local development
+```bash
+python -m venv .venv
+# Windows: .venv\\Scripts\\activate
+# macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
+
+SQLite database `joy_bus.db` is created automatically in the project folder. Back it up before updates. The starter currently has table initialization but not a production migration framework.
+
+## GPS provider example
+```bash
+# Set these in your shell or service environment, never in frontend JavaScript.
+# Windows cmd:
+set SECRET_KEY=use-a-long-random-secret
+set TRACKING_API_TOKEN=use-a-separate-long-random-token
+python app.py
+```
+
+Example request:
+```bash
+curl -X POST http://127.0.0.1:5000/api/tracking/location ^
+  -H "Content-Type: application/json" ^
+  -H "X-Tracking-Token: YOUR_TOKEN" ^
+  -d "{\"bus_id\":1,\"latitude\":8.2436,\"longitude\":77.6058,\"speed\":5,\"device_id\":\"tracker-01\"}"
+```
+
+## Production checklist
+This starter is not production-certified. Before deployment: use HTTPS; set a persistent secret and secure cookies; change demo passwords; add rate limiting and CSRF coverage to all state-changing forms; deploy behind a production WSGI server; use managed PostgreSQL/MySQL and migrations; configure backups/retention/monitoring; use per-device GPS credentials and rotation; implement real email/push, file scanning, and security testing; and have the university verify routes, stop coordinates, permissions, and privacy policy.
+
+## Role-specific navigation and map preview update
+
+The dashboard now shows different navigation and quick actions by account role:
+- **Admin / Transport Manager:** fleet, routes, student transport, imports, alerts, reports and settings.
+- **Driver:** overview, tracking, routes, alerts and browser GPS sharing for the assigned bus.
+- **Student:** overview, bus tracking and route information only (read-only; no fleet management or other students' records).
+- **Security:** overview, fleet monitoring, routes and alerts.
+
+Selecting a bus without GPS shows a clearly labelled **DEMO PREVIEW** that moves along an illustrative campus loop. The loop is not an official road route and must never be treated as a real bus location. Real tracking requires device GPS or the driver's permitted location sharing. Map tiles require an internet connection.
