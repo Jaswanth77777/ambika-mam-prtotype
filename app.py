@@ -505,6 +505,29 @@ def admin_report_counts():
         return jsonify({k:con.execute(q).fetchone()[0] for k,q in {'students':'SELECT COUNT(*) FROM students','drivers':"SELECT COUNT(*) FROM users WHERE role='DRIVER' AND active=1",'buses':'SELECT COUNT(*) FROM buses','routes':'SELECT COUNT(*) FROM routes','active_trips':"SELECT COUNT(*) FROM trips WHERE status IN ('Active','In progress')",'attendance':'SELECT COUNT(*) FROM attendance','maintenance_open':"SELECT COUNT(*) FROM maintenance WHERE status!='Resolved'",'open_alerts':"SELECT COUNT(*) FROM alerts WHERE status='Open'"}.items()})
 
 
+@app.get('/api/student/me')
+@roles_required('STUDENT')
+def student_me():
+    user=current_user()
+    with db_conn() as con:
+        student=con.execute('SELECT * FROM students WHERE lower(register_no)=lower(?) LIMIT 1',(user['username'],)).fetchone()
+        if not student:return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'student':None,'bus':None,'route':None,'stops':[],'attendance':[]})
+        st=dict(student)
+        bus=con.execute('SELECT b.id,b.bus_no,b.registration,b.status,u.full_name driver_name,r.name route_name FROM buses b LEFT JOIN users u ON u.id=b.driver_id LEFT JOIN routes r ON r.id=b.route_id WHERE b.id=?',(st.get('bus_id'),)).fetchone() if st.get('bus_id') else None
+        route=con.execute('SELECT * FROM routes WHERE id=?',(st.get('route_id'),)).fetchone() if st.get('route_id') else None
+        stops=con.execute('SELECT name,sequence,eta FROM stops WHERE route_id=? ORDER BY sequence',(st.get('route_id'),)).fetchall() if st.get('route_id') else []
+        attendance=con.execute('SELECT a.boarding_time,a.status,b.bus_no FROM attendance a LEFT JOIN buses b ON b.id=a.bus_id WHERE a.student_id=? ORDER BY a.id DESC LIMIT 100',(st['id'],)).fetchall()
+    return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'student':st,'bus':dict(bus) if bus else None,'route':dict(route) if route else None,'stops':[dict(x) for x in stops],'attendance':[dict(x) for x in attendance]})
+
+@app.get('/api/driver/me')
+@roles_required('DRIVER')
+def driver_me():
+    user=current_user()
+    with db_conn() as con:
+        bus=con.execute('SELECT b.id,b.bus_no,b.registration,b.status,b.capacity,b.route_id,r.name route_name,r.route_code FROM buses b LEFT JOIN routes r ON r.id=b.route_id WHERE b.driver_id=? ORDER BY b.id LIMIT 1',(user['id'],)).fetchone()
+        trips=con.execute('SELECT t.id,t.planned_start,t.planned_end,t.status,t.route_id,r.name route_name,b.bus_no FROM trips t LEFT JOIN routes r ON r.id=t.route_id LEFT JOIN buses b ON b.id=t.bus_id WHERE t.driver_id=? ORDER BY t.id DESC LIMIT 100',(user['id'],)).fetchall()
+    return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'bus':dict(bus) if bus else None,'trips':[dict(x) for x in trips]})
+
 @app.get('/api/notifications')
 @login_required
 def user_notifications():
