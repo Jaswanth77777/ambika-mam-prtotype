@@ -100,7 +100,7 @@ async function loadStudentPortal(){
  const routeHtml=r.name?'<b>'+esc(r.route_code)+' · '+esc(r.name)+'</b><p>'+esc(r.origin||'Start not set')+' → '+esc(r.destination||'Destination not set')+'</p><ol>'+((d.stops||[]).map(z=>'<li>'+esc(z.name)+'</li>').join(''))+'</ol>':'No route assigned.';
  if($('student-bus-card'))$('student-bus-card').innerHTML=busHtml;if($('student-bus-detail'))$('student-bus-detail').innerHTML=busHtml;
  if($('student-route-detail'))$('student-route-detail').innerHTML=routeHtml;
- const profile='<dl class="portal-dl"><dt>Name</dt><dd>'+esc(x.name||d.user.full_name)+'</dd><dt>Register number</dt><dd>'+esc(x.register_no||d.user.username)+'</dd><dt>Department</dt><dd>'+esc(x.department||'—')+'</dd><dt>Academic year</dt><dd>'+esc(x.academic_year||'—')+'</dd><dt>Phone</dt><dd>'+esc(x.phone||'—')+'</dd></dl>';
+ const profile='<dl class="portal-dl"><dt>Name</dt><dd>'+esc(x.name||d.user.full_name)+'</dd><dt>Register number</dt><dd>'+esc(x.register_no||d.user.username)+'</dd><dt>Department</dt><dd>'+esc(x.department||'—')+'</dd><dt>Academic year</dt><dd>'+esc(x.academic_year||'—')+'</dd></dl><form onsubmit="updateStudentProfile(event)" class="profile-edit-form"><label>Contact phone<input name="phone" maxlength="30" value="'+esc(x.phone||'')+'"></label><button class="btn btn-primary">Save profile</button></form>';
  if($('student-profile-card'))$('student-profile-card').innerHTML=profile;
  if($('student-metrics'))$('student-metrics').innerHTML=[['Assigned bus',b.bus_no||'—'],['Route',r.route_code||'—'],['Attendance records',(d.attendance||[]).length]].map(a=>'<div class="metric-card"><div class="metric-top"><span>'+a[0]+'</span></div><div class="metric-value">'+esc(a[1])+'</div></div>').join('');
  const eta='ETA is not available until verified route timings and current GPS data are configured.';
@@ -109,6 +109,7 @@ async function loadStudentPortal(){
  await loadPortalNotifications('student-notification-list');
  }catch(e){toast(e.message,'error')}
 }
+async function updateStudentProfile(e){e.preventDefault();const phone=new FormData(e.target).get('phone');try{const r=await fetch('/api/student/profile',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({phone})});const d=await r.json();if(!r.ok)throw new Error(d.error);toast('Profile updated');loadStudentPortal()}catch(err){toast(err.message,'error')}}
 async function loadPortalNotifications(id){try{const d=await getJSON('/api/notifications');$(id).innerHTML=d.length?d.map(n=>'<article class="portal-notice"><b>'+esc(n.title)+'</b><p>'+esc(n.message)+'</p><small>'+esc(n.created_at)+'</small></article>').join(''):'<div class="empty-state">No notifications yet.</div>'}catch(e){$(id).textContent='Notifications unavailable.'}}
 async function loadDriverPortal(){
  try{const d=await getJSON('/api/driver/me');window.driverData=d;const b=d.bus||{},t=d.trips||[];
