@@ -6,7 +6,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get('JOY_DB_PATH', os.path.join(BASE_DIR, 'joy_bus.db'))
+DB_PATH = os.environ.get('JOY_DB_PATH', '/tmp/joy_bus.db' if os.environ.get('VERCEL') else os.path.join(BASE_DIR, 'joy_bus.db'))
 SECRET = os.environ.get('SECRET_KEY')
 if not SECRET:
     SECRET = secrets.token_hex(32)
@@ -42,7 +42,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS import_jobs(id INTEGER PRIMARY KEY, filename TEXT NOT NULL, category TEXT NOT NULL, imported INTEGER DEFAULT 0, skipped INTEGER DEFAULT 0, failed INTEGER DEFAULT 0, created_at TEXT NOT NULL, summary TEXT DEFAULT '');
         CREATE TABLE IF NOT EXISTS audit_logs(id INTEGER PRIMARY KEY, user_id INTEGER, action TEXT NOT NULL, details TEXT DEFAULT '', created_at TEXT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id));
         ''')
-        seed_users = [('admin','Admin@123','ADMIN','JOY Transport Admin'),('student','Student@123','STUDENT','Demo Student'),('driver','Driver@123','DRIVER','Demo Driver'),('manager','Manager@123','TRANSPORT_MANAGER','Transport Manager'),('security','Security@123','SECURITY','Campus Security')]
+        seed_users = [('admin','Admin@123','ADMIN','JOY Transport Admin'),('student','Student@123','STUDENT','Demo Student'),('driver','Driver@123','DRIVER','Demo Driver')]
+        con.execute("DELETE FROM users WHERE role IN ('TRANSPORT_MANAGER','SECURITY')")
         for username, password, role, name in seed_users:
             con.execute('INSERT OR IGNORE INTO users(username,password_hash,role,full_name,created_at) VALUES(?,?,?,?,?)', (username, generate_password_hash(password), role, name, now_iso()))
         routes = [
@@ -101,7 +102,7 @@ def login():
 def login_post():
     username=request.form.get('username','').strip().lower(); password=request.form.get('password','')
     with db_conn() as con: user=con.execute('SELECT * FROM users WHERE username=? AND active=1',(username,)).fetchone()
-    if not user or not check_password_hash(user['password_hash'],password):
+    if not user or user['role'] not in ('ADMIN','STUDENT','DRIVER') or not check_password_hash(user['password_hash'],password):
         flash('Username or password is incorrect.','error'); return redirect(url_for('login'))
     session.clear(); session['uid']=user['id']; session['csrf']=secrets.token_urlsafe(24)
     audit('login', user['role']); return redirect(url_for('home'))
@@ -193,7 +194,7 @@ def location_history(bus_id):
     return jsonify([dict(r) for r in rows])
 
 @app.get('/api/students')
-@roles_required('ADMIN','TRANSPORT_MANAGER','SECURITY')
+@roles_required('ADMIN')
 def api_students():
     with db_conn() as con:
         rows=con.execute('SELECT s.name,s.register_no,s.department,s.academic_year,s.phone,b.bus_no,r.name route_name FROM students s LEFT JOIN buses b ON b.id=s.bus_id LEFT JOIN routes r ON r.id=s.route_id ORDER BY s.name LIMIT 5000').fetchall()
@@ -208,7 +209,7 @@ def api_routes():
     return jsonify({'routes':[dict(x) for x in routes],'stops':[dict(x) for x in stops]})
 
 @app.post('/api/buses')
-@roles_required('ADMIN','TRANSPORT_MANAGER')
+@roles_required('ADMIN')
 def save_bus():
     if request.headers.get('X-CSRF-Token') != session.get('csrf'): return jsonify({'error':'Session token expired; reload page'}),403
     d=request.get_json(silent=True) or {}
