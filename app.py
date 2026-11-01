@@ -376,10 +376,14 @@ def admin_create_record(resource):
     if any(not data.get(k) for k in required):return jsonify({'error':'Required fields: '+', '.join(required)}),400
     if resource=='trips':
         with db_conn() as con:
+            busrow=con.execute('SELECT status FROM buses WHERE id=?',(data['bus_id'],)).fetchone()
+            if not busrow or busrow['status'] in ('Maintenance','Out of service','Inactive'):return jsonify({'error':'Bus is unavailable for a new trip'}),409
             if con.execute("SELECT id FROM trips WHERE bus_id=? AND status IN ('Scheduled','In progress','Active')",(data['bus_id'],)).fetchone():return jsonify({'error':'This bus already has a scheduled or active trip'}),409
             if data.get('driver_id') and con.execute("SELECT id FROM trips WHERE driver_id=? AND status IN ('Scheduled','In progress','Active')",(data['driver_id'],)).fetchone():return jsonify({'error':'This driver already has a scheduled or active trip'}),409
         data['status']='Scheduled'
-    if resource=='maintenance':data.update(reported_at=now_iso(),status=data.get('status','Open'))
+    if resource=='maintenance':
+        data.update(reported_at=now_iso(),status=data.get('status','Open'))
+        with db_conn() as con: con.execute('UPDATE buses SET status=? WHERE id=?',('Maintenance',data['bus_id']))
     if resource=='alerts':data.update(created_at=now_iso(),status=data.get('status','Open'))
     if resource=='notifications':data.update(created_at=now_iso(),created_by=session['uid'],audience=data.get('audience','ALL'))
     try:
@@ -418,6 +422,21 @@ def admin_update_record(resource,rid):
 @roles_required('ADMIN')
 def admin_delete_record(resource,rid):
     if request.headers.get('X-CSRF-Token')!=session.get('csrf'):return jsonify({'error':'Session expired; reload the page'}),403
+    if resource=='drivers':
+        with db_conn() as con:
+            if con.execute('SELECT id FROM buses WHERE driver_id=?',(rid,)).fetchone():return jsonify({'error':'Unassign this driver from buses before deleting'}),409
+            if con.execute('SELECT id FROM trips WHERE driver_id=?',(rid,)).fetchone():return jsonify({'error':'Driver has trip history; deactivate the account instead'}),409
+            cur=con.execute(\"DELETE FROM users WHERE id=? AND role='DRIVER'\",(rid,))
+            if not cur.rowcount:return jsonify({'error':'Driver not found'}),404
+        audit('driver_deleted',str(rid));return jsonify({'ok':True})
+    if resource=='students':
+        with db_conn() as con:
+            row=con.execute('SELECT register_no FROM students WHERE id=?',(rid,)).fetchone()
+            if not row:return jsonify({'error':'Student not found'}),404
+            if con.execute('SELECT id FROM attendance WHERE student_id=?',(rid,)).fetchone():return jsonify({'error':'Student has attendance history; retain the record for audit'}),409
+            con.execute('DELETE FROM students WHERE id=?',(rid,))
+            con.execute(\"DELETE FROM users WHERE username=? AND role='STUDENT'\",(row['register_no'].lower(),))
+        audit('student_deleted',str(rid));return jsonify({'ok':True})
     if resource not in ADMIN_RESOURCES or resource=='attendance':return jsonify({'error':'This record cannot be deleted from this module'}),400
     table=ADMIN_RESOURCES[resource][0]
     if resource=='trips':
