@@ -460,9 +460,16 @@ def admin_delete_record(resource,rid):
         with db_conn() as con:
             t=con.execute('SELECT status FROM trips WHERE id=?',(rid,)).fetchone()
             if t and t['status'] in ('In progress','Active'):return jsonify({'error':'Complete active trips before deleting'}),409
-    with db_conn() as con:
-        cur=con.execute('DELETE FROM '+table+' WHERE id=?',(rid,))
-        if cur.rowcount==0:return jsonify({'error':'Record not found'}),404
+    if resource=='maintenance':
+        with db_conn() as con:
+            m=con.execute('SELECT status FROM maintenance WHERE id=?',(rid,)).fetchone()
+            if m and m['status']!='Resolved':return jsonify({'error':'Resolve the maintenance record before deleting it'}),409
+    try:
+        with db_conn() as con:
+            cur=con.execute('DELETE FROM '+table+' WHERE id=?',(rid,))
+            if cur.rowcount==0:return jsonify({'error':'Record not found'}),404
+    except sqlite3.IntegrityError:
+        return jsonify({'error':'This record is linked to operational history. Deactivate or retain it instead of deleting.'}),409
     audit(resource+'_deleted',str(rid));return jsonify({'ok':True})
 @app.get('/api/admin/reports')
 @roles_required('ADMIN')
