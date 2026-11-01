@@ -325,10 +325,7 @@ def templates_csv(category):
 @app.get('/health')
 def health(): return jsonify({'ok':True,'database':'sqlite','gps_ingestion':'configured' if os.environ.get('TRACKING_API_TOKEN') else 'not configured'})
 
-if __name__=='__main__':
-    print('JOY UNIVERSITY BUS TRACKING — development server')
-    print('Open http://127.0.0.1:5000 | Demo credentials are listed in README.md')
-    app.run(host='127.0.0.1', port=int(os.environ.get('PORT','5000')), debug=False)
+app.run(host='127.0.0.1', port=int(os.environ.get('PORT','5000')), debug=False)
 
 ADMIN_RESOURCES={'students':('students',['register_no','name','department','academic_year','phone','bus_id','route_id','stop_id']),'buses':('buses',['bus_no','registration','capacity','model','status','route_id','driver_id']),'routes':('routes',['route_code','name','origin','destination','notes','active']),'stops':('stops',['route_id','name','sequence','lat','lng','eta','coord_status']),'trips':('trips',['bus_id','route_id','driver_id','planned_start','planned_end','status']),'attendance':('attendance',['student_id','bus_id','trip_id','boarding_time','status']),'maintenance':('maintenance',['bus_id','category','description','status','resolution']),'alerts':('alerts',['category','message','bus_id','status']),'notifications':('notifications',['audience','title','message'])}
 @app.get('/api/admin/<resource>')
@@ -438,3 +435,8 @@ def admin_delete_record(resource,rid):
 def admin_report_counts():
     with db_conn() as con:
         return jsonify({k:con.execute(q).fetchone()[0] for k,q in {'students':'SELECT COUNT(*) FROM students','drivers':"SELECT COUNT(*) FROM users WHERE role='DRIVER' AND active=1",'buses':'SELECT COUNT(*) FROM buses','routes':'SELECT COUNT(*) FROM routes','active_trips':"SELECT COUNT(*) FROM trips WHERE status IN ('Active','In progress')",'attendance':'SELECT COUNT(*) FROM attendance','maintenance_open':"SELECT COUNT(*) FROM maintenance WHERE status!='Resolved'",'open_alerts':"SELECT COUNT(*) FROM alerts WHERE status='Open'"}.items()})
+
+
+if __name__=='__main__':
+    print('JOY UNIVERSITY BUS TRACKING — development server')
+    print('Open http://127.0.0.1:5000 | Demo credentials are listed in README.md')
