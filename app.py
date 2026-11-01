@@ -47,10 +47,19 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_time ON login_attempts(ip_address, attempted_at);
         CREATE INDEX IF NOT EXISTS idx_login_attempts_user_time ON login_attempts(username, ip_address, attempted_at);
         ''')
-        seed_users = [('admin',os.environ.get('INITIAL_ADMIN_PASSWORD','Admin@123'),'ADMIN','JOY Transport Admin'),('student','Student@123','STUDENT','Demo Student'),('driver','Driver@123','DRIVER','Demo Driver')]
+        user_columns = {row['name'] for row in con.execute('PRAGMA table_info(users)').fetchall()}
+        if 'email' not in user_columns:
+            con.execute('ALTER TABLE users ADD COLUMN email TEXT')
+        con.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL AND email != ""')
+        seed_users = [
+            ('admin','admin@joyuniversity.edu',os.environ.get('INITIAL_ADMIN_PASSWORD','Admin@123'),'ADMIN','JOY Transport Admin'),
+            ('student','student@joyuniversity.edu','Student@123','STUDENT','Demo Student'),
+            ('driver','driver@joyuniversity.edu','Driver@123','DRIVER','Demo Driver')
+        ]
         con.execute("DELETE FROM users WHERE role IN ('TRANSPORT_MANAGER','SECURITY')")
-        for username, password, role, name in seed_users:
-            con.execute('INSERT OR IGNORE INTO users(username,password_hash,role,full_name,created_at) VALUES(?,?,?,?,?)', (username, generate_password_hash(password), role, name, now_iso()))
+        for username, email, password, role, name in seed_users:
+            con.execute('INSERT OR IGNORE INTO users(username,email,password_hash,role,full_name,created_at) VALUES(?,?,?,?,?,?)', (username, email, generate_password_hash(password), role, name, now_iso()))
+            con.execute('UPDATE users SET email=? WHERE username=? AND (email IS NULL OR email="")', (email, username))
         routes = [
             ('R01','Vencode via Colachel','Vadakangulam','Vencode','Route/stops need transport-office verification'),
             ('R02','Pettai via Tirunelveli','Vadakangulam','Pettai, Tirunelveli','Route/stops need transport-office verification'),
@@ -123,7 +132,6 @@ def healthz():
 
 @app.get('/')
 def login():
-    # Public demo landing page: no username or password is required.
     return render_template('login.html')
 
 @app.get('/login')
@@ -132,26 +140,31 @@ def login_alias():
 
 @app.post('/login')
 def login_post():
-    return redirect(url_for('admin_entry'))
-
-@app.post('/logout')
-def logout():
-    # Demo mode returns to the public landing page.
-    session.clear()
-    return redirect(url_for('login'))
-
-@app.get('/admin')
-def admin_entry():
-    # DEMO ONLY: public one-click administrator access. Do not use with real data.
+    email = request.form.get('email', '').strip().lower()
+    password = request.form.get('password', '')
     with db_conn() as con:
-        user = con.execute("SELECT id FROM users WHERE username='admin' AND role='ADMIN' AND active=1").fetchone()
-    if not user:
-        return "Demo admin account is unavailable. Check the database seed.", 503
+        user = con.execute(
+            "SELECT id, password_hash, role FROM users WHERE lower(email)=? AND role IN ('ADMIN','DRIVER') AND active=1",
+            (email,)
+        ).fetchone()
+    if not user or not check_password_hash(user['password_hash'], password):
+        flash('Email or password is incorrect. Please try again.', 'error')
+        return render_template('login.html'), 401
     session.clear()
     session.permanent = True
     session['uid'] = user['id']
     session['csrf'] = secrets.token_urlsafe(32)
     return redirect(url_for('home'))
+
+@app.post('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.get('/admin')
+def admin_entry():
+    # Admin access now requires the normal email-and-password login.
+    return redirect(url_for('login'))
 
 @app.get('/dashboard')
 @login_required

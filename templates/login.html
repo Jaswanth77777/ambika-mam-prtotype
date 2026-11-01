@@ -3,29 +3,57 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#35105f">
-<title>JOY University · Smart Bus Tracking Demo</title>
+<title>JOY University · Smart Bus Tracking Login</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}?v=joy-demo-entry-1">
+<link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}?v=joy-simple-email-login-1">
 <style>
-.demo-entry{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#211039,#35105f 55%,#6d35a5)}
-.demo-card{width:min(100%,520px);padding:48px 36px;text-align:center;background:#fff;border-radius:24px;box-shadow:0 24px 80px #13092366}
-.demo-card img{width:94px;height:94px;object-fit:contain;margin-bottom:18px}
-.demo-card h1{color:#35105f;font:800 clamp(25px,5vw,36px) Manrope,sans-serif;margin:0 0 10px}
-.demo-card p{color:#5d5865;line-height:1.65;margin:0 auto 24px;max-width:390px}
-.demo-admin{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-width:220px;padding:16px 26px;border-radius:12px;background:#6d35a5;color:#fff;text-decoration:none;font-weight:700}
-.demo-admin:hover{background:#35105f}
-.demo-warning{display:block;margin-top:22px;color:#8b6b27;font-size:12px;line-height:1.5}
+.login-page{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#211039,#35105f 55%,#6d35a5);font-family:'DM Sans',sans-serif}
+.login-card{width:min(100%,460px);padding:38px 34px;background:#fff;border-radius:22px;box-shadow:0 24px 80px #13092366}
+.login-logo{display:block;width:82px;height:82px;object-fit:contain;margin:0 auto 14px}
+.login-card h1{text-align:center;color:#35105f;font:800 28px Manrope,sans-serif;margin:0 0 7px}
+.login-subtitle{text-align:center;color:#686171;margin:0 0 26px}
+.login-field{display:block;margin:0 0 16px;color:#393244;font-weight:700;font-size:14px}
+.login-field input{display:block;width:100%;box-sizing:border-box;margin-top:7px;padding:13px 14px;border:1px solid #d9d3e2;border-radius:10px;font:inherit;color:#241b30;background:#fff}
+.login-field input:focus{outline:2px solid #9b78c2;border-color:#6d35a5}
+.login-submit{width:100%;border:0;border-radius:10px;padding:14px;background:#6d35a5;color:#fff;font-weight:700;font-size:16px;cursor:pointer}
+.login-submit:hover{background:#35105f}
+.login-error{padding:10px 12px;border-radius:8px;background:#fff0f0;color:#9c2525;margin-bottom:16px;font-size:14px}
+.demo-credentials{border-top:1px solid #e9e4ef;margin-top:24px;padding-top:18px;color:#5d5668;font-size:13px;line-height:1.8}
+.demo-credentials h2{font-size:14px;color:#35105f;margin:0 0 8px}
+.demo-credentials p{margin:3px 0}
+.demo-note{margin:14px 0 0;color:#8b6b27;font-size:12px;line-height:1.5}
+@media(max-width:480px){.login-card{padding:30px 22px}}
 </style>
 </head>
 <body>
-<main class="demo-entry">
-<section class="demo-card">
-<img src="{{ url_for('static',filename='assets/joy-university-logo.jpg') }}" alt="JOY University logo">
+<main class="login-page">
+<section class="login-card">
+<img class="login-logo" src="{{ url_for('static',filename='assets/joy-university-logo.jpg') }}" alt="JOY University logo">
 <h1>JOY University</h1>
-<p>Smart Bus Tracking System</p>
-<a class="demo-admin" href="{{ url_for('admin_entry') }}">Open Admin Dashboard <span aria-hidden="true">→</span></a>
-<small class="demo-warning">DEMO MODE · No login required. Anyone with this link can open and change demo records. Do not use real student or transport data.</small>
+<p class="login-subtitle">Smart Bus Tracking System</p>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="login-error" role="alert">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+<form method="post" action="{{ url_for('login_post') }}">
+<label class="login-field">Email
+<input type="email" name="email" placeholder="Enter your email" autocomplete="username" required>
+</label>
+<label class="login-field">Password
+<input type="password" name="password" placeholder="Enter your password" autocomplete="current-password" required>
+</label>
+<button class="login-submit" type="submit">Login</button>
+</form>
+<div class="demo-credentials">
+<h2>Demo Login Details</h2>
+<p><strong>Admin email:</strong> admin@joyuniversity.edu</p>
+<p><strong>Admin password:</strong> Admin@123</p>
+<p><strong>Driver email:</strong> driver@joyuniversity.edu</p>
+<p><strong>Driver password:</strong> Driver@123</p>
+</div>
+<p class="demo-note">Demo accounts are shown for testing. Change these passwords and use private accounts before adding real student or transport data.</p>
 </section>
 </main>
 </body>
