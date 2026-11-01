@@ -144,7 +144,7 @@ def login_post():
     password = request.form.get('password', '')
     with db_conn() as con:
         user = con.execute(
-            "SELECT id, password_hash, role FROM users WHERE lower(email)=? AND role IN ('ADMIN','DRIVER') AND active=1",
+            "SELECT id, password_hash, role FROM users WHERE lower(email)=? AND role IN ('ADMIN','DRIVER','STUDENT') AND active=1",
             (email,)
         ).fetchone()
     if not user or not check_password_hash(user['password_hash'], password):
