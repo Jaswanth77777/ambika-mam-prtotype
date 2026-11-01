@@ -12,14 +12,14 @@
 .login-card{width:min(100%,460px);padding:38px 34px;background:#fff;border-radius:22px;box-shadow:0 24px 80px #13092366}
 .login-logo{display:block;width:82px;height:82px;object-fit:contain;margin:0 auto 14px}
 .login-card h1{text-align:center;color:#35105f;font:800 28px Manrope,sans-serif;margin:0 0 7px}
-.login-subtitle{text-align:center;color:#686171;margin:0 0 26px}
+.login-subtitle{text-align:center;color:#686171;margin:0 0 18px}\n.login-method-title{text-align:center;color:#35105f;font:700 15px Manrope,sans-serif;margin:0 0 18px}
 .login-field{display:block;margin:0 0 16px;color:#393244;font-weight:700;font-size:14px}
 .login-field input{display:block;width:100%;box-sizing:border-box;margin-top:7px;padding:13px 14px;border:1px solid #d9d3e2;border-radius:10px;font:inherit;color:#241b30;background:#fff}
 .login-field input:focus{outline:2px solid #9b78c2;border-color:#6d35a5}
 .login-submit{width:100%;border:0;border-radius:10px;padding:14px;background:#6d35a5;color:#fff;font-weight:700;font-size:16px;cursor:pointer}
 .login-submit:hover{background:#35105f}
 .login-error{padding:10px 12px;border-radius:8px;background:#fff0f0;color:#9c2525;margin-bottom:16px;font-size:14px}
-.demo-credentials{border-top:1px solid #e9e4ef;margin-top:24px;padding-top:18px;color:#5d5668;font-size:13px;line-height:1.8}
+.demo-credentials{border:1px solid #d8c9e8;border-radius:12px;background:#f7f2fc;margin-top:24px;padding:16px;color:#393244;font-size:14px;line-height:1.9}\n.demo-credentials h2{font-size:16px;color:#35105f;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid #e2d7ed}
 .demo-credentials h2{font-size:14px;color:#35105f;margin:0 0 8px}
 .demo-credentials p{margin:3px 0}
 .demo-note{margin:14px 0 0;color:#8b6b27;font-size:12px;line-height:1.5}
@@ -31,7 +31,7 @@
 <section class="login-card">
 <img class="login-logo" src="{{ url_for('static',filename='assets/joy-university-logo.jpg') }}" alt="JOY University logo">
 <h1>JOY University</h1>
-<p class="login-subtitle">Smart Bus Tracking System</p>
+<p class="login-subtitle">Smart Bus Tracking System</p>\n<h2 class="login-method-title">Email &amp; Password Login</h2>
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% for category, message in messages %}
     <div class="login-error" role="alert">{{ message }}</div>
