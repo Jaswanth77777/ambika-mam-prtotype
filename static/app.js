@@ -61,7 +61,7 @@ function downloadTemplate(cat){window.location.href=`/templates/${cat}.csv`}
 function setTheme(dark){document.body.classList.toggle('dark-mode',dark);localStorage.setItem('joy-theme',dark?'dark':'light')}$('theme-toggle').addEventListener('click',()=>setTheme(!document.body.classList.contains('dark-mode')));setTheme(localStorage.getItem('joy-theme')==='dark');
 function setupRole(){
   const permissions={
-    ADMIN:['overview','tracking','buses','routes','students','imports','alerts','reports','settings'],
+    ADMIN:['overview','tracking','alerts','reports','admin-students','admin-drivers','admin-buses','admin-routes','admin-stops','admin-trips','admin-attendance','admin-maintenance','admin-permissions','admin-settings'],
     DRIVER:['overview','tracking','routes','alerts'],
     STUDENT:['overview','tracking','routes'],
   };
