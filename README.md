@@ -28,6 +28,16 @@ These are development-only accounts. Change/remove them before any real deployme
 ## Imports
 The import page supports category CSV and `.xlsx` files, up to 8 MB. Download the provided templates. Unique bus numbers, route IDs, and student register numbers prevent duplicate inserts; existing records are updated. Failed rows are reported in the response. The `.xlsx` importer looks for a sheet named `Buses`, `Routes`, or `Students` for the selected category; otherwise it uses the first sheet.
 
+## Deploy the web app
+
+### Vercel (fixes the function invocation error)
+
+The repository includes `api/index.py` and `vercel.json` to expose the Flask application through Vercel's Python runtime. Pushes to `main` should trigger the connected Vercel project. In Vercel Project Settings → Environment Variables, set `SECRET_KEY` to a long random value, `INITIAL_ADMIN_PASSWORD` to a strong unique password, and `COOKIE_SECURE` to `1`. Redeploy after setting them. The Vercel `/tmp` SQLite database is temporary and can reset between function instances; use the Render persistent-disk deployment below for actual records.
+
+### Render (persistent SQLite deployment)
+
+Create a new Blueprint in Render and select this repository. `render.yaml` provisions a Flask/Gunicorn service with a persistent disk mounted at `/var/data`. Set the prompted `INITIAL_ADMIN_PASSWORD` and `TRACKING_API_TOKEN` values. The service stores its SQLite database on the persistent disk. The Render starter service and disk are paid resources; check current pricing before creating them.
+
 ## Local development
 ```bash
 python -m venv .venv
@@ -37,7 +47,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-SQLite database `joy_bus.db` is created automatically in the project folder. Back it up before updates. The starter currently has table initialization but not a production migration framework.
+SQLite database `joy_bus.db` is created automatically in the project folder. Back it up before updates. The Render Blueprint stores it on its persistent disk; Vercel's `/tmp` storage is temporary. The starter currently has table initialization but not a production migration framework.
 
 ## GPS provider example
 ```bash
