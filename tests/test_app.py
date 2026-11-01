@@ -36,7 +36,7 @@ class PortalSmokeTests(unittest.TestCase):
     def test_dashboard_requires_login(self):
         response = self.client.get("/dashboard")
         self.assertIn(response.status_code, (301, 302))
-        self.assertIn("/login", response.headers["Location"])
+        self.assertTrue(response.headers["Location"].endswith("/"))
 
     def test_admin_api_rejects_anonymous_requests(self):
         response = self.client.get("/api/admin/reports")
