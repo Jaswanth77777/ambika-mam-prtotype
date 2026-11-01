@@ -16,7 +16,7 @@ function gpsBearing(a,b){const rad=x=>x*Math.PI/180,lat1=rad(a.lat),lat2=rad(b.l
 function upsertMarkers(mapName,map){
  if(!map)return;
  const holder=markers[mapName];
- const visible=buses.filter(b=>(mapName!=='tracking'||selectedBus===null||Number(b.id)===Number(selectedBus))&&b.lat!==null&&b.lat!==undefined&&b.lng!==null&&b.lng!==undefined&&Number.isFinite(Number(b.lat))&&Number.isFinite(Number(b.lng)));
+ const visible=buses.filter(b=>(mapName!=='tracking'||selectedBus===null||(Number(b.id)===Number(selectedBus)&&b.tracking_status==='LIVE GPS'))&&b.lat!==null&&b.lat!==undefined&&b.lng!==null&&b.lng!==undefined&&Number.isFinite(Number(b.lat))&&Number.isFinite(Number(b.lng)));
  visible.forEach(b=>{
   const key=b.id,ll={lat:Number(b.lat),lng:Number(b.lng)};
   if(!holder[key]){
@@ -55,42 +55,35 @@ async function openMyBusTracking(){const data=role==='STUDENT'?window.studentDat
 function renderBusList(){if(!$('bus-list'))return;const q=($('bus-search')?.value||'').toLowerCase(),route=$('route-filter')?.value||'',status=$('status-filter')?.value||'';const filtered=buses.filter(b=>(!q||`${b.bus_no} ${b.route_name||''}`.toLowerCase().includes(q))&&(!route||String(b.route_id)===route)&&(!status||b.tracking_status===status));$('bus-list-count').textContent=`${filtered.length} of ${buses.length} buses`;$('bus-list').innerHTML=filtered.map(b=>`<div class="bus-list-item ${selectedBus===b.id?'selected':''}" onclick="selectBus(${b.id},true)"><div class="bus-avatar">🚌</div><div class="bus-list-copy"><b>${esc(b.bus_no)}</b><span>${esc(b.route_name||'Route not assigned')}</span></div><span class="gps-tag ${statusClass(b.tracking_status)}">${esc(b.tracking_status)}</span></div>`).join('')||'<div class="empty-state">No matching buses.</div>'}
 async function startDemoBusMotion(bus){
  if(!trackingMap||!bus)return;
- const id=Number(bus.id);
- let path=[];
+ const id=Number(bus.id);let path=[];
  try{
   if(!bus.route_id)throw new Error('This bus has no configured route.');
-  const routeData=await getJSON('/api/routes');
-  if(selectedBus!==id)return;
+  const routeData=await getJSON('/api/routes');if(selectedBus!==id)return;
   const stops=(routeData.stops||[]).filter(s=>Number(s.route_id)===Number(bus.route_id)&&s.lat!==null&&s.lng!==null&&Number.isFinite(Number(s.lat))&&Number.isFinite(Number(s.lng))).sort((a,b)=>Number(a.sequence)-Number(b.sequence));
-  if(stops.length<2)throw new Error('Add at least two verified route stops with latitude and longitude to show a road route.');
+  if(stops.length<2)throw new Error('This route needs at least two mapped stops. Ask the transport admin to configure them.');
   const coords=stops.map(s=>Number(s.lng)+','+Number(s.lat)).join(';');
   const response=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson&steps=false');
   if(!response.ok)throw new Error('Road routing service is unavailable. Try again later.');
-  const roadData=await response.json();
-  const coordinates=roadData.routes?.[0]?.geometry?.coordinates;
-  if(!coordinates||coordinates.length<2)throw new Error('No drivable road route was returned for these stops.');
+  const roadData=await response.json();if(roadData.code!=='Ok')throw new Error(roadData.message||'No drivable road route was returned.');
+  const coordinates=roadData.routes?.[0]?.geometry?.coordinates;if(!coordinates||coordinates.length<2)throw new Error('No drivable road route was returned.');
   path=coordinates.map(c=>[c[1],c[0]]);
- }catch(e){
-  if(selectedBus===id){$('map-selected-label').textContent=bus.bus_no+' · waiting for GPS';toast(e.message,'error')}
-  return;
- }
+ }catch(e){if(selectedBus===id){$('map-selected-label').textContent=bus.bus_no+' · route unavailable';toast(e.message,'error')}return}
  if(selectedBus!==id)return;
  const routeLine=L.polyline(path,{color:'#1685e8',weight:6,opacity:.9,lineCap:'round',lineJoin:'round'}).addTo(trackingMap);
- const icon=L.divIcon({className:'joy-bus-icon',html:`<div class="bus-map-marker selected demo"><span>🚌</span><b>${esc(bus.bus_no)}</b><small>ROUTE PREVIEW</small></div>`,iconSize:[150,40],iconAnchor:[75,20]});
- const marker=L.marker(path[0],{icon,zIndexOffset:1200}).addTo(trackingMap).bindPopup(`<div class="popup-bus"><b>${esc(bus.bus_no)} · ROAD ROUTE PREVIEW</b><p>This follows the road route generated from configured stop coordinates. It is a route preview, not live vehicle GPS.</p></div>`);
- demoMarkers[id]={marker,routeLine};
- trackingMap.fitBounds(routeLine.getBounds().pad(.2));
- $('map-selected-label').textContent=bus.bus_no+' · ROAD ROUTE PREVIEW (not live GPS)';
- const lengths=[];let total=0;
- for(let i=0;i<path.length-1;i++){const d=L.latLng(path[i]).distanceTo(L.latLng(path[i+1]));lengths.push(d);total+=d}
- const duration=Math.max(60000,Math.min(240000,total/8*1000)),started=performance.now();
+ const previewSpeedKmh=25;
+ const icon=L.divIcon({className:'joy-bus-icon',html:`<div class="bus-map-marker selected demo"><span>🚌</span><b>${esc(bus.bus_no)}</b><small>ROAD PREVIEW</small></div>`,iconSize:[150,40],iconAnchor:[75,20]});
+ const marker=L.marker(path[0],{icon,zIndexOffset:1200}).addTo(trackingMap).bindPopup(`<div class="popup-bus"><b>${esc(bus.bus_no)} · ROAD ROUTE PREVIEW</b><p>Animated at a preview speed of ${previewSpeedKmh} km/h. This is not live vehicle GPS.</p></div>`);
+ const lengths=[];let total=0;for(let i=0;i<path.length-1;i++){const d=L.latLng(path[i]).distanceTo(L.latLng(path[i+1]));lengths.push(d);total+=d}
+ if(total<20){trackingMap.removeLayer(marker);trackingMap.removeLayer(routeLine);toast('Configured stops are too close to create a useful road preview.','error');return}
+ demoMarkers[id]={marker,routeLine,speedKmh:previewSpeedKmh,totalMeters:total};
+ trackingMap.fitBounds(routeLine.getBounds().pad(.2));$('map-selected-label').textContent=bus.bus_no+' · ROAD PREVIEW · '+previewSpeedKmh+' km/h';renderSelectedDetail();
+ const duration=Math.max(10000,total/(previewSpeedKmh/3.6)*1000),started=performance.now();
  function frame(now){
   if(selectedBus!==id||!demoMarkers[id])return;
-  const progress=((now-started)%duration)/duration;let target=progress*total,seg=0;
+  const cycle=((now-started)/duration)%2,progress=cycle<=1?cycle:2-cycle;let target=progress*total,seg=0;
   while(seg<lengths.length-1&&target>lengths[seg]){target-=lengths[seg];seg++}
-  const t=lengths[seg]?target/lengths[seg]:0,A=path[seg],B=path[seg+1];
-  marker.setLatLng([A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t]);
-  if($('follow-bus')?.checked&&trackingMap.getZoom()>=13)trackingMap.panTo(marker.getLatLng(),{animate:false});
+  const t=lengths[seg]?Math.min(1,target/lengths[seg]):0,A=path[seg],B=path[seg+1],point=[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t];
+  marker.setLatLng(point);if($('follow-bus')?.checked&&trackingMap.getZoom()>=13)trackingMap.panTo(point,{animate:false});
   demoAnimation=requestAnimationFrame(frame);
  }
  demoAnimation=requestAnimationFrame(frame);
@@ -101,14 +94,19 @@ async function selectBus(id,focus=false){
  if(demoAnimation){cancelAnimationFrame(demoAnimation);demoAnimation=null}
  selectedBus=Number(id);const bus=buses.find(x=>Number(x.id)===selectedBus);if(!bus)return;
  if(!trackingMap)trackingMap=initTrackingMap();trackingMap?.invalidateSize();
- Object.keys(markers.tracking).forEach(k=>{if(Number(k)!==selectedBus){trackingMap?.removeLayer(markers.tracking[k]);delete markers.tracking[k]}});
- renderBusList();renderSelectedDetail();upsertMarkers('tracking',trackingMap);
- const hasGPS=bus.lat!==null&&bus.lat!==undefined&&bus.lng!==null&&bus.lng!==undefined&&Number.isFinite(Number(bus.lat))&&Number.isFinite(Number(bus.lng));
- $('map-selected-label').textContent=bus.bus_no+' · '+(hasGPS?bus.tracking_status:'GPS NOT CONNECTED');
- if(hasGPS&&focus&&trackingMap){const point=[Number(bus.lat),Number(bus.lng)];trackingMap.setView(point,Math.max(trackingMap.getZoom(),16));const marker=markers.tracking[bus.id];if(marker)marker.openPopup();showHistory(selectedBus)}
- else if(focus&&trackingMap){await startDemoBusMotion(bus)}
+ Object.keys(markers.tracking).forEach(k=>{if(Number(k)!==selectedBus||bus.tracking_status!=='LIVE GPS'){trackingMap?.removeLayer(markers.tracking[k]);delete markers.tracking[k]}});
+ renderBusList();renderSelectedDetail();
+ const hasLiveGPS=bus.tracking_status==='LIVE GPS'&&bus.lat!==null&&bus.lat!==undefined&&bus.lng!==null&&bus.lng!==undefined&&Number.isFinite(Number(bus.lat))&&Number.isFinite(Number(bus.lng));
+ if(hasLiveGPS){
+  upsertMarkers('tracking',trackingMap);
+  if(focus&&trackingMap){const point=[Number(bus.lat),Number(bus.lng)];trackingMap.setView(point,Math.max(trackingMap.getZoom(),16));const marker=markers.tracking[bus.id];if(marker)marker.openPopup();showHistory(selectedBus)}
+  $('map-selected-label').textContent=bus.bus_no+' · LIVE GPS';
+ }else{
+  $('map-selected-label').textContent=bus.bus_no+' · building road preview…';
+  if(focus&&trackingMap)await startDemoBusMotion(bus);
+ }
 }
-function renderSelectedDetail(){const b=buses.find(x=>x.id===selectedBus);if(!b){$('selected-bus-detail').innerHTML='<div class="empty-state">Choose a bus to see details.</div>';return}$('selected-bus-detail').innerHTML=`<div class="selected-title"><div class="bus-avatar">🚌</div><div><h3>${esc(b.bus_no)}</h3><p>${esc(b.route_name||'Route not assigned')}</p></div><span class="gps-tag ${statusClass(b.tracking_status)}">${esc(b.tracking_status)}</span></div><div class="detail-grid"><div class="detail-cell"><span>VEHICLE STATUS</span><b>${esc(b.status)}</b></div><div class="detail-cell"><span>SPEED</span><b>${b.speed==null?'Unavailable':Math.round(b.speed*3.6)+' km/h'}</b></div><div class="detail-cell"><span>LAST UPDATE</span><b>${esc(formatAge(b.age_seconds))}</b></div><div class="detail-cell"><span>DRIVER</span><b>${esc(b.driver_name||'Not assigned')}</b></div><div class="detail-cell"><span>CAPACITY</span><b>${b.capacity} seats</b></div><div class="detail-cell"><span>ETA</span><b>Unavailable</b></div></div><p style="font-size:9px;color:#9aa4b3;line-height:1.6;margin:12px 0 0">${b.tracking_status==='LIVE GPS'?'Device-reported GPS.':b.tracking_status==='STALE'?'Last known position is stale and is not live.':'No verified current GPS received. ETA is withheld.'}</p><button class="btn btn-secondary" style="width:100%;margin-top:12px" onclick="showHistory(${b.id})">View recent GPS history</button>`}
+function renderSelectedDetail(){const b=buses.find(x=>x.id===selectedBus);if(!b){$('selected-bus-detail').innerHTML='<div class="empty-state">Choose a bus to see details.</div>';return}$('selected-bus-detail').innerHTML=`<div class="selected-title"><div class="bus-avatar">🚌</div><div><h3>${esc(b.bus_no)}</h3><p>${esc(b.route_name||'Route not assigned')}</p></div><span class="gps-tag ${statusClass(b.tracking_status)}">${esc(b.tracking_status)}</span></div><div class="detail-grid"><div class="detail-cell"><span>VEHICLE STATUS</span><b>${esc(b.status)}</b></div><div class="detail-cell"><span>SPEED</span><b>${b.speed!=null?Math.round(b.speed*3.6)+' km/h':(demoMarkers[b.id]?.speedKmh?demoMarkers[b.id].speedKmh+' km/h (preview)':'Unavailable')}</b></div><div class="detail-cell"><span>LAST UPDATE</span><b>${esc(formatAge(b.age_seconds))}</b></div><div class="detail-cell"><span>DRIVER</span><b>${esc(b.driver_name||'Not assigned')}</b></div><div class="detail-cell"><span>CAPACITY</span><b>${b.capacity} seats</b></div><div class="detail-cell"><span>ETA</span><b>Unavailable</b></div></div><p style="font-size:9px;color:#9aa4b3;line-height:1.6;margin:12px 0 0">${b.tracking_status==='LIVE GPS'?'Device-reported GPS.':b.tracking_status==='STALE'?'Last known position is stale and is not live.':'No verified current GPS received. ETA is withheld.'}</p><button class="btn btn-secondary" style="width:100%;margin-top:12px" onclick="showHistory(${b.id})">View recent GPS history</button>`}
 function showFleet(){
  Object.keys(demoMarkers).forEach(k=>{const d=demoMarkers[k];if(d.marker)trackingMap?.removeLayer(d.marker);if(d.routeLine)trackingMap?.removeLayer(d.routeLine);delete demoMarkers[k]});
  if(demoAnimation){cancelAnimationFrame(demoAnimation);demoAnimation=null}
