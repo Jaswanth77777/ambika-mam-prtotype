@@ -84,3 +84,11 @@ The dashboard now shows different navigation and quick actions by account role:
 - **Driver:** overview, tracking, routes, alerts and browser GPS sharing for the assigned bus.
 - **Student:** overview, bus tracking and route information only (read-only; no fleet management or other students' records).
 Selecting a bus without GPS shows a clearly labelled **DEMO PREVIEW** that moves along an illustrative campus loop. The loop is not an official road route and must never be treated as a real bus location. Real tracking requires device GPS or the driver's permitted location sharing. Map tiles require an internet connection.
+
+
+## Health check and automated tests
+
+- Hosting platforms and uptime monitors can call `GET /healthz`. It returns HTTP 200 when the Flask process can query its database and HTTP 503 when the database is unavailable.
+- GitHub Actions runs on pushes and pull requests to `main`. It compiles the Flask module and runs smoke tests for health, login protection, Admin/Student authorization, and CSRF-protected bus creation.
+- Run the same checks locally with `python -m unittest discover -s tests -v`.
+- Copy `.env.example` to `.env` for local configuration. Keep real secrets out of Git. GPS timestamps more than five minutes old or more than one minute in the future are rejected.
