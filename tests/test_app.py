@@ -95,7 +95,7 @@ class PortalSmokeTests(unittest.TestCase):
             content_type="multipart/form-data",
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json()["imported"], 1)
+        self.assertEqual(response.get_json()["imported"], 1, response.get_json())
         with portal.db_conn() as con:
             account = con.execute("SELECT role FROM users WHERE username='test-login-01'").fetchone()
             student = con.execute("SELECT name FROM students WHERE register_no='TEST-LOGIN-01'").fetchone()
