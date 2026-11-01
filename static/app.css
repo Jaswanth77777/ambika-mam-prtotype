@@ -40,3 +40,63 @@
 
 :root{--navy:#35105f;--navy2:#451779;--ink:#20202a;--paper:#f5f5f7;--blue:#6d35a5;--purple:#6d35a5;--line:#c5c8ce;--green:#16a36a}body{background:var(--paper);color:var(--ink)}.sidebar{background:#35105f}.nav-item.active{background:#512080;box-shadow:inset 3px 0 #d7c2ec}.btn-primary{background:#6d35a5;border-color:#6d35a5}.nav-list{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-right:3px;scrollbar-width:thin}.nav-section-label{font-size:9px;letter-spacing:1.5px;font-weight:800;color:#c9b5df;padding:16px 12px 6px}.portal-logout{margin:0;padding:0}.portal-logout .nav-item{width:100%}.portal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:18px}.portal-data{padding:16px 0;line-height:1.7}.portal-dl{display:grid;grid-template-columns:minmax(130px,1fr) 2fr;gap:10px;margin:0}.portal-dl dt{color:var(--muted)}.portal-dl dd{margin:0;font-weight:700}.portal-notice{padding:15px 0;border-bottom:1px solid var(--line)}.portal-notice p{margin:6px 0;color:var(--muted)}.view.hidden{display:none!important}body.dark-mode{--ink:#f2edf7;--muted:#b9afc5;--line:#494052;--paper:#17131d;--white:#211b29;background:var(--paper);color:var(--ink)}body.dark-mode .panel,body.dark-mode .metric-card{background:#211b29;border-color:#494052;color:var(--ink)}body.dark-mode input,body.dark-mode select,body.dark-mode textarea{background:#17131d;color:var(--ink);border-color:#494052}@media(max-width:800px){.portal-grid{grid-template-columns:1fr}.nav-list{max-height:calc(100vh - 245px)}}
 .nav-list{flex:1;min-height:0;overflow-y:auto}.sidebar-bottom{flex-shrink:0}body.dark-mode .topbar,body.dark-mode .main-area{background:#17131d;color:var(--ink)}body.dark-mode .topbar{border-color:#494052}body.dark-mode .panel-header,body.dark-mode .table-wrap,body.dark-mode .table-toolbar{border-color:#494052}body.dark-mode .view p,body.dark-mode .muted{color:var(--muted)}
+
+/* JOY University portal visual refresh */
+:root{--navy:#35105f;--navy2:#451779;--ink:#211a2a;--muted:#766d80;--paper:#f7f5f9;--blue:#6d35a5;--blue-light:#f1eafa;--purple:#6d35a5;--line:#e8e1ed;--green:#16845e;--shadow:0 12px 34px rgba(53,16,95,.07)}
+body{background:radial-gradient(ellipse at 88% 0%,rgba(109,53,165,.055),transparent 35%),var(--paper);color:var(--ink)}
+.sidebar{background:linear-gradient(180deg,#35105f,#281044);box-shadow:8px 0 32px rgba(39,13,67,.10)}
+.side-brand img{border-radius:13px;box-shadow:0 5px 16px #17082b55}
+.nav-list{gap:5px;padding:4px 2px 12px}
+.nav-item{min-height:42px;height:auto;border-radius:10px;font-size:12px;padding:10px 12px;line-height:1.35}
+.nav-item.active{background:linear-gradient(100deg,#6d35a5,#552184);box-shadow:inset 3px 0 #e2c9fb,0 5px 16px #16072b45}
+.nav-item:hover{background:rgba(255,255,255,.10)}
+.nav-section-label{padding-top:19px;color:#d4c1e7}
+.help-card{background:rgba(255,255,255,.075);border-color:rgba(255,255,255,.11)}
+.topbar{height:72px;background:rgba(255,255,255,.9);border-color:#ebe5ef;box-shadow:0 4px 18px rgba(53,16,95,.035)}
+.content-area{padding:32px clamp(18px,3vw,42px) 40px}
+.page-heading{margin-bottom:25px}
+.page-heading h1{font-size:clamp(24px,2.1vw,32px);letter-spacing:-1px;color:#2d1741}
+.eyebrow{color:#875bb0;letter-spacing:2px}
+.page-heading p{font-size:13px;color:#857a8d}
+.panel,.metric-card,.route-card,.import-card,.report-card{border:1px solid #e9e2ee;border-radius:16px;box-shadow:var(--shadow)}
+.panel-header{padding:19px 21px;border-color:#f0eaf3}
+.panel-header h3{font-size:14px;color:#32194a}
+.metric-card{padding:18px;background:linear-gradient(150deg,#fff,#fdfbff)}
+.metric-value{color:#35105f}
+.metric-icon.blue,.quick-icon.blue,.import-icon.blue,.report-icon{background:#f1eafa;color:#6d35a5}
+.btn{height:39px;border-radius:10px;font-size:11px;padding:0 16px}
+.btn-primary{background:linear-gradient(110deg,#6d35a5,#542080);box-shadow:0 6px 15px rgba(109,53,165,.18)}
+.btn-primary:hover{background:#512078;box-shadow:0 8px 18px rgba(109,53,165,.24)}
+.btn-secondary,.icon-btn{border-color:#e6deeb;background:#fff;color:#59476a}
+.btn-secondary:hover,.icon-btn:hover{border-color:#cbb5dc;background:#fbf8fd}
+.search-field,.tracking-toolbar select,.admin-record-search{border-radius:10px;border-color:#e5dcea;background:#fff}
+.table-wrap th{background:#faf7fc;color:#816b91}
+.table-wrap td{font-size:11px}
+.table-wrap tbody tr:hover{background:#fcf9ff}
+.map-canvas{border-radius:12px}
+.map-note{background:#faf7fc}
+.route-card,.import-card,.report-card{transition:transform .18s ease,box-shadow .18s ease}
+.route-card:hover,.import-card:hover,.report-card:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(53,16,95,.10)}
+.admin-inline-form{border-radius:14px;background:#fcf9ff;border-color:#e7dced}
+.admin-field-grid input,.form-field input,.form-field select,.form-field textarea{border-radius:9px;min-height:40px;border-color:#e2d8e9}
+.admin-field-grid input:focus,.form-field input:focus,.form-field select:focus,.form-field textarea:focus,.search-field:focus-within{outline:3px solid rgba(109,53,165,.12);border-color:#9469b8}
+.portal-grid{gap:20px}
+.portal-data{padding:18px 20px}
+.portal-grid .panel>.btn{margin:0 20px 18px}
+.student-readonly-note,.driver-gps-card{border:1px solid #e8dced;background:linear-gradient(120deg,#fff,#faf6fd)}
+.toast{border-radius:11px;box-shadow:0 12px 30px rgba(30,12,45,.15)}
+.modal-card{border-radius:18px;box-shadow:0 28px 90px rgba(31,10,49,.3)}
+.modal-header{background:#fcf9ff}
+.app-footer{padding-top:20px;color:#96899e}
+.nav-item:focus-visible,.btn:focus-visible,.icon-btn:focus-visible{outline:3px solid #c7a9e0;outline-offset:2px}
+body.dark-mode{--ink:#f4edf8;--muted:#c0b3ca;--line:#493b55;--paper:#17111e;background:#17111e;color:var(--ink)}
+body.dark-mode .topbar{background:rgba(31,22,40,.94);border-color:#493b55}
+body.dark-mode .page-heading h1,body.dark-mode .panel-header h3,body.dark-mode .metric-value{color:#f4edf8}
+body.dark-mode .panel,body.dark-mode .metric-card,body.dark-mode .route-card,body.dark-mode .import-card,body.dark-mode .report-card{background:#241a2e;border-color:#493b55}
+body.dark-mode .panel-header,body.dark-mode .table-toolbar,body.dark-mode .table-wrap th{background:#2a2034;border-color:#493b55}
+body.dark-mode .table-wrap td,body.dark-mode .table-wrap th{color:#d9cde2}
+body.dark-mode .btn-secondary,body.dark-mode .icon-btn,body.dark-mode .search-field,body.dark-mode .tracking-toolbar select{background:#2a2034;color:#e9dff0;border-color:#554463}
+body.dark-mode .admin-inline-form,body.dark-mode .selected-bus-detail,body.dark-mode .map-note{background:#21182a;border-color:#493b55}
+@media(max-width:1050px){.metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.content-area{padding:24px 20px}}
+@media(max-width:800px){.sidebar{box-shadow:14px 0 40px rgba(20,7,35,.28)}.topbar{padding:0 16px}.content-area{padding:20px 14px 30px}.page-heading{align-items:flex-start;flex-direction:column}.heading-actions{width:100%}.heading-actions .btn{flex:1}.dashboard-grid,.bottom-grid,.tracking-layout{grid-template-columns:1fr}.bus-list-panel{max-height:none;min-height:300px}.tracking-canvas{height:55vh;min-height:320px}}
+@media(max-width:560px){.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.metric-card{padding:13px}.metric-value{font-size:23px}.top-actions{gap:7px}.connection-pill{display:none}.switch-account{padding:0 9px}.portal-dl{grid-template-columns:1fr;gap:3px}.portal-dl dd{margin-bottom:8px}.report-grid,.route-grid,.import-cards,.settings-grid{grid-template-columns:1fr}.app-footer{padding:14px;flex-direction:column}.admin-field-grid{grid-template-columns:1fr}.table-toolbar{align-items:flex-start;flex-wrap:wrap}}
