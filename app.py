@@ -61,6 +61,9 @@ def init_db():
         driver_id = con.execute("SELECT id FROM users WHERE username='driver'").fetchone()['id']
         for i in range(1,11):
             con.execute('INSERT OR IGNORE INTO buses(bus_no,registration,capacity,model,status,route_id,driver_id,created_at) VALUES(?,?,?,?,?,?,?,?)', (f'JOY-{i:02d}', '', 40, 'Not specified', 'Active', i, driver_id if i == 1 else None, now_iso()))
+        con.execute('INSERT OR IGNORE INTO students(register_no,name,department,academic_year,bus_id,route_id) VALUES(?,?,?,?,?,?)',('student','Demo Student','General','2026-27',1,1))
+        if not con.execute('SELECT id FROM trips WHERE driver_id=? LIMIT 1',(driver_id,)).fetchone():
+            con.execute('INSERT INTO trips(bus_id,route_id,driver_id,planned_start,status) VALUES(?,?,?,?,?)',(1,1,driver_id,now_iso(),'Scheduled'))
         # Coordinates intentionally absent: no fabricated GPS is shown as live.
         for rid, stop_name in [(1,'Vadakangulam Campus'),(2,'Tirunelveli Bus Stand'),(3,'Kanyakumari'),(4,'Chettikulam'),(5,'Kaliyakkavilai'),(6,'Rajakkamangalam'),(7,'Kalakkad'),(8,'Thisayanvilai'),(9,'Thalayuthu'),(10,'Ambasamudram')]:
             con.execute('INSERT OR IGNORE INTO stops(route_id,name,sequence,coord_status) VALUES(?,?,?,?)', (rid, stop_name, 1, 'Approximate - verify'))
