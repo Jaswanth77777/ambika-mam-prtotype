@@ -66,6 +66,14 @@ def init_db():
             con.execute('INSERT OR IGNORE INTO stops(route_id,name,sequence,coord_status) VALUES(?,?,?,?)', (rid, stop_name, 1, 'Approximate - verify'))
 
 init_db()
+with db_conn() as con:
+    con.executescript("""
+    CREATE TABLE IF NOT EXISTS attendance(id INTEGER PRIMARY KEY, student_id INTEGER NOT NULL, bus_id INTEGER, trip_id INTEGER, boarding_time TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'Present', FOREIGN KEY(student_id) REFERENCES students(id), FOREIGN KEY(bus_id) REFERENCES buses(id), FOREIGN KEY(trip_id) REFERENCES trips(id));
+    CREATE TABLE IF NOT EXISTS maintenance(id INTEGER PRIMARY KEY, bus_id INTEGER NOT NULL, category TEXT NOT NULL, description TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'Open', resolution TEXT DEFAULT '', reported_at TEXT NOT NULL, resolved_at TEXT, FOREIGN KEY(bus_id) REFERENCES buses(id));
+    CREATE TABLE IF NOT EXISTS system_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS notifications(id INTEGER PRIMARY KEY, audience TEXT NOT NULL DEFAULT 'ALL', title TEXT NOT NULL, message TEXT NOT NULL, created_at TEXT NOT NULL, created_by INTEGER);
+    """)
+
 
 def current_user():
     if not session.get('uid'): return None
@@ -321,3 +329,107 @@ if __name__=='__main__':
     print('JOY UNIVERSITY BUS TRACKING — development server')
     print('Open http://127.0.0.1:5000 | Demo credentials are listed in README.md')
     app.run(host='127.0.0.1', port=int(os.environ.get('PORT','5000')), debug=False)
+
+ADMIN_RESOURCES={'students':('students',['register_no','name','department','academic_year','phone','bus_id','route_id','stop_id']),'buses':('buses',['bus_no','registration','capacity','model','status','route_id','driver_id']),'routes':('routes',['route_code','name','origin','destination','notes','active']),'stops':('stops',['route_id','name','sequence','lat','lng','eta','coord_status']),'trips':('trips',['bus_id','route_id','driver_id','planned_start','planned_end','status']),'attendance':('attendance',['student_id','bus_id','trip_id','boarding_time','status']),'maintenance':('maintenance',['bus_id','category','description','status','resolution']),'alerts':('alerts',['category','message','bus_id','status']),'notifications':('notifications',['audience','title','message'])}
+@app.get('/api/admin/<resource>')
+@roles_required('ADMIN')
+def admin_records(resource):
+    if resource=='drivers':
+        with db_conn() as con: rows=con.execute("SELECT id,username,full_name,active,created_at FROM users WHERE role='DRIVER' ORDER BY full_name").fetchall()
+    elif resource=='permissions': rows=[{'role':'ADMIN','access':'All admin modules; admin-only protected actions'},{'role':'DRIVER','access':'Assigned bus GPS, routes, trip actions and alerts'},{'role':'STUDENT','access':'Read-only bus tracking and route information'}]
+    elif resource=='settings':
+        with db_conn() as con: rows=con.execute('SELECT * FROM system_settings ORDER BY key').fetchall()
+    elif resource=='logs':
+        with db_conn() as con: rows=con.execute('SELECT a.id,u.username,a.action,a.details,a.created_at FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.id DESC LIMIT 500').fetchall()
+    elif resource in ADMIN_RESOURCES:
+        table,fields=ADMIN_RESOURCES[resource]
+        with db_conn() as con:
+            if resource=='students': rows=con.execute('SELECT s.*,b.bus_no,r.name route_name FROM students s LEFT JOIN buses b ON b.id=s.bus_id LEFT JOIN routes r ON r.id=s.route_id ORDER BY s.name').fetchall()
+            elif resource=='trips': rows=con.execute('SELECT t.*,b.bus_no,r.name route_name,u.full_name driver_name FROM trips t LEFT JOIN buses b ON b.id=t.bus_id LEFT JOIN routes r ON r.id=t.route_id LEFT JOIN users u ON u.id=t.driver_id ORDER BY t.id DESC').fetchall()
+            elif resource=='attendance': rows=con.execute('SELECT a.*,s.name student_name,s.register_no,b.bus_no FROM attendance a JOIN students s ON s.id=a.student_id LEFT JOIN buses b ON b.id=a.bus_id ORDER BY a.id DESC').fetchall()
+            elif resource=='maintenance': rows=con.execute('SELECT m.*,b.bus_no FROM maintenance m JOIN buses b ON b.id=m.bus_id ORDER BY m.id DESC').fetchall()
+            elif resource=='stops': rows=con.execute('SELECT s.*,r.route_code FROM stops s JOIN routes r ON r.id=s.route_id ORDER BY r.route_code,s.sequence').fetchall()
+            else: rows=con.execute('SELECT * FROM '+table+' ORDER BY id DESC LIMIT 1000').fetchall()
+    else: return jsonify({'error':'Unknown admin module'}),404
+    return jsonify([dict(x) for x in rows])
+@app.post('/api/admin/<resource>')
+@roles_required('ADMIN')
+def admin_create_record(resource):
+    if request.headers.get('X-CSRF-Token')!=session.get('csrf'): return jsonify({'error':'Session expired; reload the page'}),403
+    d=request.get_json(silent=True) or {}
+    if resource=='drivers':
+        username=str(d.get('username','')).strip().lower(); name=str(d.get('full_name','')).strip(); password=str(d.get('password',''))
+        if not username or not name or len(password)<8:return jsonify({'error':'Username, full name and password (8+ chars) are required'}),400
+        try:
+            with db_conn() as con: con.execute("INSERT INTO users(username,password_hash,role,full_name,created_at) VALUES(?,?,?,?,?)",(username,generate_password_hash(password),'DRIVER',name,now_iso()))
+        except sqlite3.IntegrityError:return jsonify({'error':'Username already exists'}),409
+        audit('driver_created',username);return jsonify({'ok':True})
+    if resource=='students' and d.get('password'):
+        username=str(d.get('username') or d.get('register_no') or '').strip().lower()
+        if len(str(d['password']))<8:return jsonify({'error':'Student password must be at least 8 characters'}),400
+        try:
+            with db_conn() as con: con.execute("INSERT INTO users(username,password_hash,role,full_name,created_at) VALUES(?,?,?,?,?)",(username,generate_password_hash(str(d['password'])),'STUDENT',str(d.get('name',''))[:120],now_iso()))
+        except sqlite3.IntegrityError:return jsonify({'error':'Student login username already exists'}),409
+    if resource not in ADMIN_RESOURCES:return jsonify({'error':'This module cannot create records'}),400
+    table,allowed=ADMIN_RESOURCES[resource];data={k:d[k] for k in allowed if k in d and d[k] not in ('',None)}
+    required={'students':['register_no','name'],'buses':['bus_no'],'routes':['route_code','name'],'stops':['route_id','name'],'trips':['bus_id'],'attendance':['student_id','boarding_time'],'maintenance':['bus_id','category','description'],'alerts':['category','message'],'notifications':['title','message']}[resource]
+    if any(not data.get(k) for k in required):return jsonify({'error':'Required fields: '+', '.join(required)}),400
+    if resource=='trips':
+        with db_conn() as con:
+            if con.execute("SELECT id FROM trips WHERE bus_id=? AND status IN ('Scheduled','In progress','Active')",(data['bus_id'],)).fetchone():return jsonify({'error':'This bus already has a scheduled or active trip'}),409
+            if data.get('driver_id') and con.execute("SELECT id FROM trips WHERE driver_id=? AND status IN ('Scheduled','In progress','Active')",(data['driver_id'],)).fetchone():return jsonify({'error':'This driver already has a scheduled or active trip'}),409
+        data['status']='Scheduled'
+    if resource=='maintenance':data.update(reported_at=now_iso(),status=data.get('status','Open'))
+    if resource=='alerts':data.update(created_at=now_iso(),status=data.get('status','Open'))
+    if resource=='notifications':data.update(created_at=now_iso(),created_by=session['uid'],audience=data.get('audience','ALL'))
+    try:
+        with db_conn() as con:
+            cols=list(data);con.execute('INSERT INTO '+table+'('+','.join(cols)+') VALUES('+','.join(['?']*len(cols))+')',[data[k] for k in cols])
+    except sqlite3.IntegrityError as e:return jsonify({'error':'Record conflicts with an existing or linked record: '+str(e)}),409
+    audit(resource+'_created',str(data)[:400]);return jsonify({'ok':True})
+@app.patch('/api/admin/<resource>/<int:rid>')
+@roles_required('ADMIN')
+def admin_update_record(resource,rid):
+    if request.headers.get('X-CSRF-Token')!=session.get('csrf'):return jsonify({'error':'Session expired; reload the page'}),403
+    d=request.get_json(silent=True) or {}
+    if resource=='drivers':
+        name=str(d.get('full_name','')).strip();active=0 if str(d.get('active','1')).lower() in ('0','false','inactive') else 1
+        if not name:return jsonify({'error':'Full name is required'}),400
+        with db_conn() as con:con.execute("UPDATE users SET full_name=?,active=? WHERE id=? AND role='DRIVER'",(name,active,rid))
+    elif resource=='settings':
+        key=str(d.get('key','')).strip();value=str(d.get('value',''))
+        if not key:return jsonify({'error':'Setting key is required'}),400
+        with db_conn() as con:con.execute('INSERT INTO system_settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at',(key,value,now_iso()))
+    elif resource in ADMIN_RESOURCES:
+        table,allowed=ADMIN_RESOURCES[resource];data={k:d[k] for k in allowed if k in d}
+        if not data:return jsonify({'error':'No editable fields supplied'}),400
+        if resource=='trips':
+            with db_conn() as con:
+                old=con.execute('SELECT status FROM trips WHERE id=?',(rid,)).fetchone()
+                if not old:return jsonify({'error':'Trip not found'}),404
+                if data.get('status')=='In progress' and old['status'] not in ('Scheduled','In progress'):return jsonify({'error':'Only scheduled trips can start'}),409
+                if data.get('status')=='In progress':data['actual_start']=now_iso()
+                if data.get('status')=='Completed':data['actual_end']=now_iso()
+        if resource=='maintenance' and data.get('status')=='Resolved':data.update(resolved_at=now_iso())
+        with db_conn() as con:con.execute('UPDATE '+table+' SET '+','.join(k+'=?' for k in data)+' WHERE id=?',list(data.values())+[rid])
+    else:return jsonify({'error':'This module cannot be edited'}),400
+    audit(resource+'_updated',str(rid));return jsonify({'ok':True})
+@app.delete('/api/admin/<resource>/<int:rid>')
+@roles_required('ADMIN')
+def admin_delete_record(resource,rid):
+    if request.headers.get('X-CSRF-Token')!=session.get('csrf'):return jsonify({'error':'Session expired; reload the page'}),403
+    if resource not in ADMIN_RESOURCES or resource=='attendance':return jsonify({'error':'This record cannot be deleted from this module'}),400
+    table=ADMIN_RESOURCES[resource][0]
+    if resource=='trips':
+        with db_conn() as con:
+            t=con.execute('SELECT status FROM trips WHERE id=?',(rid,)).fetchone()
+            if t and t['status'] in ('In progress','Active'):return jsonify({'error':'Complete active trips before deleting'}),409
+    with db_conn() as con:
+        cur=con.execute('DELETE FROM '+table+' WHERE id=?',(rid,))
+        if cur.rowcount==0:return jsonify({'error':'Record not found'}),404
+    audit(resource+'_deleted',str(rid));return jsonify({'ok':True})
+@app.get('/api/admin/reports')
+@roles_required('ADMIN')
+def admin_report_counts():
+    with db_conn() as con:
+        return jsonify({k:con.execute(q).fetchone()[0] for k,q in {'students':'SELECT COUNT(*) FROM students','drivers':"SELECT COUNT(*) FROM users WHERE role='DRIVER' AND active=1",'buses':'SELECT COUNT(*) FROM buses','routes':'SELECT COUNT(*) FROM routes','active_trips':"SELECT COUNT(*) FROM trips WHERE status IN ('Active','In progress')",'attendance':'SELECT COUNT(*) FROM attendance','maintenance_open':"SELECT COUNT(*) FROM maintenance WHERE status!='Resolved'",'open_alerts':"SELECT COUNT(*) FROM alerts WHERE status='Open'"}.items()})
