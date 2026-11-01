@@ -547,6 +547,24 @@ def driver_update_trip(trip_id):
     audit('driver_trip_'+status.lower().replace(' ','_'),str(trip_id))
     return jsonify({'ok':True,'status':status})
 
+@app.post('/api/driver/issues')
+@roles_required('DRIVER')
+def driver_report_issue():
+    if request.headers.get('X-CSRF-Token')!=session.get('csrf'):return jsonify({'error':'Session expired; reload the page'}),403
+    d=request.get_json(silent=True) or {};kind=str(d.get('kind',''));description=str(d.get('description','')).strip()
+    if not description:return jsonify({'error':'Please describe the issue'}),400
+    user=current_user()
+    with db_conn() as con:
+        bus=con.execute('SELECT id FROM buses WHERE driver_id=? ORDER BY id LIMIT 1',(user['id'],)).fetchone()
+        if not bus:return jsonify({'error':'No bus is assigned to this driver'}),409
+        if kind=='emergency':
+            con.execute('INSERT INTO alerts(category,message,bus_id,status,created_at) VALUES(?,?,?,?,?)',('Driver emergency',description[:1000],bus['id'],'Open',now_iso()))
+        elif kind=='maintenance':
+            con.execute('INSERT INTO maintenance(bus_id,category,description,status,reported_at) VALUES(?,?,?,?,?)',(bus['id'],str(d.get('category') or 'Vehicle issue')[:100],description[:1000],'Open',now_iso()))
+        else:return jsonify({'error':'Unknown report type'}),400
+    audit('driver_'+kind+'_reported',description[:300])
+    return jsonify({'ok':True})
+
 @app.get('/api/notifications')
 @login_required
 def user_notifications():
