@@ -374,6 +374,12 @@ def admin_create_record(resource):
     table,allowed=ADMIN_RESOURCES[resource];data={k:d[k] for k in allowed if k in d and d[k] not in ('',None)}
     required={'students':['register_no','name'],'buses':['bus_no'],'routes':['route_code','name'],'stops':['route_id','name'],'trips':['bus_id'],'attendance':['student_id','boarding_time'],'maintenance':['bus_id','category','description'],'alerts':['category','message'],'notifications':['title','message']}[resource]
     if any(not data.get(k) for k in required):return jsonify({'error':'Required fields: '+', '.join(required)}),400
+    if resource=='buses' and data.get('driver_id'):
+        with db_conn() as con:
+            driver=con.execute("SELECT id FROM users WHERE id=? AND role='DRIVER' AND active=1",(data['driver_id'],)).fetchone()
+            assigned=con.execute('SELECT id FROM buses WHERE driver_id=?',(data['driver_id'],)).fetchone()
+            if not driver:return jsonify({'error':'Select an active Driver account'}),400
+            if assigned:return jsonify({'error':'This driver is already assigned to another bus'}),409
     if resource=='trips':
         with db_conn() as con:
             busrow=con.execute('SELECT status FROM buses WHERE id=?',(data['bus_id'],)).fetchone()
@@ -407,6 +413,12 @@ def admin_update_record(resource,rid):
     elif resource in ADMIN_RESOURCES:
         table,allowed=ADMIN_RESOURCES[resource];data={k:d[k] for k in allowed if k in d}
         if not data:return jsonify({'error':'No editable fields supplied'}),400
+        if resource=='buses' and data.get('driver_id'):
+            with db_conn() as con:
+                driver=con.execute("SELECT id FROM users WHERE id=? AND role='DRIVER' AND active=1",(data['driver_id'],)).fetchone()
+                assigned=con.execute('SELECT id FROM buses WHERE driver_id=? AND id!=?',(data['driver_id'],rid)).fetchone()
+                if not driver:return jsonify({'error':'Select an active Driver account'}),400
+                if assigned:return jsonify({'error':'This driver is already assigned to another bus'}),409
         if resource=='trips':
             with db_conn() as con:
                 old=con.execute('SELECT status FROM trips WHERE id=?',(rid,)).fetchone()
