@@ -68,6 +68,16 @@ class PortalSmokeTests(unittest.TestCase):
         self.assertEqual(len(self.client.get("/api/buses").get_json()), 1)
         self.assertEqual(self.client.get("/api/admin/reports").status_code, 403)
 
+    def test_student_cannot_read_another_buses_gps_history(self):
+        self.assertIn(self.login("student", "Student@123").status_code, (301, 302))
+        response = self.client.get("/api/tracking/buses/2/history")
+        self.assertEqual(response.status_code, 404)
+
+    def test_driver_cannot_read_another_buses_gps_history(self):
+        self.assertIn(self.login("driver", "Driver@123").status_code, (301, 302))
+        response = self.client.get("/api/tracking/buses/2/history")
+        self.assertEqual(response.status_code, 404)
+
     def test_admin_bus_write_requires_csrf_token(self):
         self.assertIn(self.login("admin", "Admin@123").status_code, (301, 302))
         response = self.client.post(

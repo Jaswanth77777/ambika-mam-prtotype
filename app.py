@@ -218,7 +218,16 @@ def driver_location():
 @app.get('/api/tracking/buses/<int:bus_id>/history')
 @login_required
 def location_history(bus_id):
-    with db_conn() as con: rows=con.execute('SELECT lat,lng,speed,heading,accuracy,source,recorded_at FROM locations WHERE bus_id=? ORDER BY recorded_at DESC LIMIT 100',(bus_id,)).fetchall()
+    user=current_user()
+    with db_conn() as con:
+        bus=con.execute('SELECT id,driver_id FROM buses WHERE id=?',(bus_id,)).fetchone()
+        if not bus:return jsonify({'error':'Bus not found'}),404
+        if user['role']=='STUDENT':
+            assigned=con.execute('SELECT bus_id FROM students WHERE lower(register_no)=lower(?) LIMIT 1',(user['username'],)).fetchone()
+            if not assigned or assigned['bus_id']!=bus_id:return jsonify({'error':'This bus is not assigned to your student account'}),404
+        elif user['role']=='DRIVER' and bus['driver_id']!=user['id']:
+            return jsonify({'error':'This bus is not assigned to your driver account'}),404
+        rows=con.execute('SELECT lat,lng,speed,heading,accuracy,source,recorded_at FROM locations WHERE bus_id=? ORDER BY recorded_at DESC,id DESC LIMIT 100',(bus_id,)).fetchall()
     return jsonify([dict(r) for r in rows])
 
 @app.get('/api/students')
@@ -287,6 +296,8 @@ def import_file(category):
     f=request.files.get('file')
     if not f or not f.filename: return jsonify({'error':'Choose an .xlsx or .csv file'}),400
     filename=secure_filename(f.filename)
+    mode=request.form.get('mode','upsert')
+    if mode not in ('upsert','add_only'): return jsonify({'error':'Invalid import mode'}),400
     if not (filename.lower().endswith('.csv') or filename.lower().endswith('.xlsx')): return jsonify({'error':'Only .csv and .xlsx files are accepted'}),400
     raw=f.read()
     try:
@@ -313,13 +324,17 @@ def import_file(category):
                     route_label=str(row.get('assigned_route') or row.get('route_code') or '').strip()
                     route=con.execute('SELECT id FROM routes WHERE route_code=? OR name=?',(route_label,route_label)).fetchone() if route_label else None
                     exists=con.execute('SELECT id FROM buses WHERE bus_no=?',(no,)).fetchone()
-                    if exists: con.execute('UPDATE buses SET registration=?,capacity=?,model=? WHERE bus_no=?',(str(row.get('vehicle_registration_number') or row.get('registration') or '')[:40],cap,str(row.get('bus_model') or row.get('model') or '')[:80],no)); skipped+=1
+                    if exists:
+                        if mode!='add_only': con.execute('UPDATE buses SET registration=?,capacity=?,model=? WHERE bus_no=?',(str(row.get('vehicle_registration_number') or row.get('registration') or '')[:40],cap,str(row.get('bus_model') or row.get('model') or '')[:80],no))
+                        skipped+=1
                     else: con.execute('INSERT INTO buses(bus_no,registration,capacity,model,status,route_id,created_at) VALUES(?,?,?,?,?,?,?)',(no,str(row.get('vehicle_registration_number') or row.get('registration') or '')[:40],cap,str(row.get('bus_model') or row.get('model') or '')[:80],str(row.get('bus_status') or 'Active'),route['id'] if route else None,now_iso())); imported+=1
                 elif category=='routes':
                     code=str(row.get('route_id') or row.get('route_code') or '').strip().upper(); name=str(row.get('route_name') or row.get('name') or '').strip()
                     if not code or not name: raise ValueError('Route ID and Route Name are required')
                     existing=con.execute('SELECT id FROM routes WHERE route_code=?',(code,)).fetchone()
-                    if existing: con.execute('UPDATE routes SET name=?,origin=?,destination=? WHERE route_code=?',(name,str(row.get('starting_point') or '')[:100],str(row.get('destination') or '')[:100],code)); skipped+=1
+                    if existing:
+                        if mode!='add_only': con.execute('UPDATE routes SET name=?,origin=?,destination=? WHERE route_code=?',(name,str(row.get('starting_point') or '')[:100],str(row.get('destination') or '')[:100],code))
+                        skipped+=1
                     else: con.execute('INSERT INTO routes(route_code,name,origin,destination,notes) VALUES(?,?,?,?,?)',(code,name,str(row.get('starting_point') or '')[:100],str(row.get('destination') or '')[:100],'Imported from Excel')); imported+=1
                 else:
                     reg=str(row.get('register_number') or row.get('register_no') or '').strip(); name=str(row.get('student_name') or row.get('name') or '').strip()
@@ -329,13 +344,15 @@ def import_file(category):
                     bus=con.execute('SELECT id,route_id FROM buses WHERE bus_no=?',(bus_label.upper(),)).fetchone() if bus_label else None
                     existing=con.execute('SELECT id FROM students WHERE register_no=?',(reg,)).fetchone()
                     vals=(name,str(row.get('department') or '')[:100],str(row.get('academic_year') or '')[:30],str(row.get('phone_number') or row.get('phone') or '')[:30],bus['id'] if bus else None,route['id'] if route else (bus['route_id'] if bus else None))
-                    if existing: con.execute('UPDATE students SET name=?,department=?,academic_year=?,phone=?,bus_id=?,route_id=? WHERE register_no=?',(*vals,reg)); skipped+=1
+                    if existing:
+                        if mode!='add_only': con.execute('UPDATE students SET name=?,department=?,academic_year=?,phone=?,bus_id=?,route_id=? WHERE register_no=?',(*vals,reg))
+                        skipped+=1
                     else: con.execute('INSERT INTO students(name,department,academic_year,phone,bus_id,route_id,register_no) VALUES(?,?,?,?,?,?,?)', (vals[0],vals[1],vals[2],vals[3],vals[4],vals[5],reg)); imported+=1
             except Exception as e:
                 failed+=1; errors.append({'row':idx,'error':str(e)[:180]})
         con.execute('INSERT INTO import_jobs(filename,category,imported,skipped,failed,created_at,summary) VALUES(?,?,?,?,?,?,?)',(filename,category,imported,skipped,failed,now_iso(),json.dumps(errors[:500])))
     audit('excel_import',f'{filename}: {imported} imported, {skipped} updated/existing, {failed} failed')
-    return jsonify({'ok':True,'imported':imported,'updated_or_existing':skipped,'failed':failed,'errors':errors})
+    return jsonify({'ok':True,'imported':imported,'updated_or_existing':skipped,'mode':mode,'failed':failed,'errors':errors})
 
 @app.get('/templates/<category>.csv')
 @login_required
