@@ -407,9 +407,13 @@ def admin_update_record(resource,rid):
     if request.headers.get('X-CSRF-Token')!=session.get('csrf'):return jsonify({'error':'Session expired; reload the page'}),403
     d=request.get_json(silent=True) or {}
     if resource=='drivers':
-        name=str(d.get('full_name','')).strip();active=0 if str(d.get('active','1')).lower() in ('0','false','inactive') else 1
+        name=str(d.get('full_name','')).strip()
         if not name:return jsonify({'error':'Full name is required'}),400
-        with db_conn() as con:con.execute("UPDATE users SET full_name=?,active=? WHERE id=? AND role='DRIVER'",(name,active,rid))
+        with db_conn() as con:
+            old=con.execute("SELECT active FROM users WHERE id=? AND role='DRIVER'",(rid,)).fetchone()
+            if not old:return jsonify({'error':'Driver not found'}),404
+            active=(0 if str(d.get('active')).lower() in ('0','false','inactive') else 1) if 'active' in d else old['active']
+            con.execute("UPDATE users SET full_name=?,active=? WHERE id=? AND role='DRIVER'",(name,active,rid))
     elif resource=='settings':
         key=str(d.get('key','')).strip();value=str(d.get('value',''))
         if not key:return jsonify({'error':'Setting key is required'}),400
