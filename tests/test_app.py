@@ -181,6 +181,15 @@ class PortalSmokeTests(unittest.TestCase):
         with portal.db_conn() as con:
             con.execute("DELETE FROM stops WHERE name='CI Mapped Stop'")
 
+    def test_all_starter_routes_have_public_preview_coordinates(self):
+        self.assertIn(self.login("admin", "Admin@123").status_code, (301, 302))
+        data = self.client.get("/api/routes").get_json()
+        self.assertEqual(len(data["routes"]), 10)
+        for route in data["routes"]:
+            mapped = [s for s in data["stops"] if s["route_id"] == route["id"] and s["lat"] is not None and s["lng"] is not None]
+            self.assertTrue(mapped, f"{route['route_code']} has no mapped reference point")
+            self.assertIn("NOT a verified JOY service stop", mapped[0]["coord_status"])
+
     def test_admin_bus_write_requires_csrf_token(self):
         self.assertIn(self.login("admin", "Admin@123").status_code, (301, 302))
         response = self.client.post(
