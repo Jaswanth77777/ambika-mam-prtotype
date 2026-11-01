@@ -513,6 +513,9 @@ def student_me():
         student=con.execute('SELECT * FROM students WHERE lower(register_no)=lower(?) LIMIT 1',(user['username'],)).fetchone()
         if not student:return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'student':None,'bus':None,'route':None,'stops':[],'attendance':[]})
         st=dict(student)
+        if not st.get('route_id') and st.get('bus_id'):
+            linked=con.execute('SELECT route_id FROM buses WHERE id=?',(st['bus_id'],)).fetchone()
+            if linked:st['route_id']=linked['route_id']
         bus=con.execute('SELECT b.id,b.bus_no,b.registration,b.status,u.full_name driver_name,r.name route_name FROM buses b LEFT JOIN users u ON u.id=b.driver_id LEFT JOIN routes r ON r.id=b.route_id WHERE b.id=?',(st.get('bus_id'),)).fetchone() if st.get('bus_id') else None
         route=con.execute('SELECT * FROM routes WHERE id=?',(st.get('route_id'),)).fetchone() if st.get('route_id') else None
         stops=con.execute('SELECT name,sequence,eta FROM stops WHERE route_id=? ORDER BY sequence',(st.get('route_id'),)).fetchall() if st.get('route_id') else []
@@ -526,7 +529,8 @@ def driver_me():
     with db_conn() as con:
         bus=con.execute('SELECT b.id,b.bus_no,b.registration,b.status,b.capacity,b.route_id,r.name route_name,r.route_code FROM buses b LEFT JOIN routes r ON r.id=b.route_id WHERE b.driver_id=? ORDER BY b.id LIMIT 1',(user['id'],)).fetchone()
         trips=con.execute('SELECT t.id,t.planned_start,t.planned_end,t.status,t.route_id,r.name route_name,b.bus_no FROM trips t LEFT JOIN routes r ON r.id=t.route_id LEFT JOIN buses b ON b.id=t.bus_id WHERE t.driver_id=? ORDER BY t.id DESC LIMIT 100',(user['id'],)).fetchall()
-    return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'bus':dict(bus) if bus else None,'trips':[dict(x) for x in trips]})
+        attendance=con.execute('SELECT a.id,a.boarding_time,a.status,s.name student_name,s.register_no FROM attendance a JOIN students s ON s.id=a.student_id WHERE a.bus_id=? ORDER BY a.id DESC LIMIT 200',(bus['id'],)).fetchall() if bus else []
+    return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'bus':dict(bus) if bus else None,'trips':[dict(x) for x in trips],'attendance':[dict(x) for x in attendance]})
 
 @app.post('/api/driver/trips/<int:trip_id>')
 @roles_required('DRIVER')
