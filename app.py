@@ -42,7 +42,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS import_jobs(id INTEGER PRIMARY KEY, filename TEXT NOT NULL, category TEXT NOT NULL, imported INTEGER DEFAULT 0, skipped INTEGER DEFAULT 0, failed INTEGER DEFAULT 0, created_at TEXT NOT NULL, summary TEXT DEFAULT '');
         CREATE TABLE IF NOT EXISTS audit_logs(id INTEGER PRIMARY KEY, user_id INTEGER, action TEXT NOT NULL, details TEXT DEFAULT '', created_at TEXT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id));
         ''')
-        seed_users = [('admin','Admin@123','ADMIN','JOY Transport Admin'),('student','Student@123','STUDENT','Demo Student'),('driver','Driver@123','DRIVER','Demo Driver')]
+        seed_users = [('admin',os.environ.get('INITIAL_ADMIN_PASSWORD','Admin@123'),'ADMIN','JOY Transport Admin'),('student','Student@123','STUDENT','Demo Student'),('driver','Driver@123','DRIVER','Demo Driver')]
         con.execute("DELETE FROM users WHERE role IN ('TRANSPORT_MANAGER','SECURITY')")
         for username, password, role, name in seed_users:
             con.execute('INSERT OR IGNORE INTO users(username,password_hash,role,full_name,created_at) VALUES(?,?,?,?,?)', (username, generate_password_hash(password), role, name, now_iso()))
@@ -226,7 +226,7 @@ def save_bus():
     audit('bus_created',bus_no); return jsonify({'ok':True})
 
 @app.post('/api/routes')
-@roles_required('ADMIN','TRANSPORT_MANAGER')
+@roles_required('ADMIN')
 def save_route():
     if request.headers.get('X-CSRF-Token') != session.get('csrf'): return jsonify({'error':'Session token expired; reload page'}),403
     d=request.get_json(silent=True) or {}; code=str(d.get('route_code','')).strip().upper(); name=str(d.get('name','')).strip()
@@ -237,7 +237,7 @@ def save_route():
     audit('route_created',code); return jsonify({'ok':True})
 
 @app.post('/api/alerts/<int:alert_id>/ack')
-@roles_required('ADMIN','TRANSPORT_MANAGER','SECURITY')
+@roles_required('ADMIN')
 def ack_alert(alert_id):
     with db_conn() as con: con.execute('UPDATE alerts SET status="Acknowledged",acknowledged_by=? WHERE id=? AND status="Open"',(session['uid'],alert_id))
     audit('alert_acknowledged',str(alert_id)); return jsonify({'ok':True})
@@ -249,7 +249,7 @@ def get_alerts():
     return jsonify([dict(x) for x in rows])
 
 @app.post('/api/import/<category>')
-@roles_required('ADMIN','TRANSPORT_MANAGER')
+@roles_required('ADMIN')
 def import_file(category):
     if request.headers.get('X-CSRF-Token') != session.get('csrf'): return jsonify({'error':'Session token expired; reload page'}),403
     if category not in ['buses','routes','students']: return jsonify({'error':'Unsupported import category'}),400
