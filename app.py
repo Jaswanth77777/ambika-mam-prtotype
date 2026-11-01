@@ -532,6 +532,18 @@ def student_me():
         attendance=con.execute('SELECT a.boarding_time,a.status,b.bus_no FROM attendance a LEFT JOIN buses b ON b.id=a.bus_id WHERE a.student_id=? ORDER BY a.id DESC LIMIT 100',(st['id'],)).fetchall()
     return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'student':st,'bus':bus_data,'route':dict(route) if route else None,'stops':[dict(x) for x in stops],'attendance':[dict(x) for x in attendance]})
 
+@app.post('/api/student/profile')
+@roles_required('STUDENT')
+def update_student_profile():
+    if request.headers.get('X-CSRF-Token')!=session.get('csrf'):return jsonify({'error':'Session expired; reload the page'}),403
+    user=current_user();phone=str((request.get_json(silent=True) or {}).get('phone','')).strip()[:30]
+    with db_conn() as con:
+        row=con.execute('SELECT id FROM students WHERE lower(register_no)=lower(?)',(user['username'],)).fetchone()
+        if not row:return jsonify({'error':'No student profile is linked to this account'}),404
+        con.execute('UPDATE students SET phone=? WHERE id=?',(phone,row['id']))
+    audit('student_profile_updated','Phone number updated')
+    return jsonify({'ok':True})
+
 @app.get('/api/driver/me')
 @roles_required('DRIVER')
 def driver_me():
