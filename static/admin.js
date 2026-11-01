@@ -75,3 +75,13 @@ async function loadAdminReportSummary(){
 }
 document.querySelectorAll('.nav-item[data-view="alerts"]').forEach(n=>n.addEventListener('click',()=>setTimeout(loadAdminAnnouncements,150)));
 document.querySelectorAll('.nav-item[data-view="reports"]').forEach(n=>n.addEventListener('click',()=>setTimeout(loadAdminReportSummary,150)));
+
+async function loadRoleAnnouncements(){
+ try{
+  const rows=await adminGet('/api/notifications');let panel=document.getElementById('role-announcements');
+  if(!panel){panel=document.createElement('section');panel.id='role-announcements';panel.className='panel';const heading=document.querySelector('#view-overview .page-heading');if(heading)heading.insertAdjacentElement('afterend',panel);}
+  if(!panel)return;
+  panel.innerHTML='<div class="panel-header"><div><h3>Transport announcements</h3><p>Latest updates for your account role.</p></div></div>'+(rows.length?rows.map(x=>'<div class="alert-row"><div class="alert-copy"><b>'+adminEsc(x.title)+'</b><p>'+adminEsc(x.message)+'</p><small>'+adminEsc(x.created_at)+'</small></div></div>').join(''):'<p>No new announcements.</p>');
+ }catch(e){}
+}
+loadRoleAnnouncements();setInterval(loadRoleAnnouncements,60000);
