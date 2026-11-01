@@ -32,3 +32,8 @@
 /* Separate Admin Portal navigation from personal Student and Driver navigation. */
 .nav-section-label{padding:17px 13px 7px;color:#7285a4;font-size:9px;font-weight:800;letter-spacing:1.7px;}
 .nav-section-label.hidden{display:none!important;}
+
+/* Keep the full Admin Portal menu accessible on desktop and mobile. */
+.nav-list{min-height:0;overflow-y:auto;overscroll-behavior:contain;}
+.sidebar{min-height:0;}
+.nav-item.hidden,.nav-section-label.hidden{display:none!important;}
