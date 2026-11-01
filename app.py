@@ -392,7 +392,10 @@ def admin_create_record(resource):
         data.update(reported_at=now_iso(),status=data.get('status','Open'))
         with db_conn() as con: con.execute('UPDATE buses SET status=? WHERE id=?',('Maintenance',data['bus_id']))
     if resource=='alerts':data.update(created_at=now_iso(),status=data.get('status','Open'))
-    if resource=='notifications':data.update(created_at=now_iso(),created_by=session['uid'],audience=data.get('audience','ALL'))
+    if resource=='notifications':
+        audience=str(data.get('audience','ALL')).upper()
+        if audience not in ('ALL','STUDENT','DRIVER'):return jsonify({'error':'Audience must be ALL, STUDENT or DRIVER'}),400
+        data.update(created_at=now_iso(),created_by=session['uid'],audience=audience)
     try:
         with db_conn() as con:
             cols=list(data);con.execute('INSERT INTO '+table+'('+','.join(cols)+') VALUES('+','.join(['?']*len(cols))+')',[data[k] for k in cols])
@@ -477,6 +480,14 @@ def admin_report_counts():
     with db_conn() as con:
         return jsonify({k:con.execute(q).fetchone()[0] for k,q in {'students':'SELECT COUNT(*) FROM students','drivers':"SELECT COUNT(*) FROM users WHERE role='DRIVER' AND active=1",'buses':'SELECT COUNT(*) FROM buses','routes':'SELECT COUNT(*) FROM routes','active_trips':"SELECT COUNT(*) FROM trips WHERE status IN ('Active','In progress')",'attendance':'SELECT COUNT(*) FROM attendance','maintenance_open':"SELECT COUNT(*) FROM maintenance WHERE status!='Resolved'",'open_alerts':"SELECT COUNT(*) FROM alerts WHERE status='Open'"}.items()})
 
+
+@app.get('/api/notifications')
+@login_required
+def user_notifications():
+    user=current_user()
+    with db_conn() as con:
+        rows=con.execute('SELECT id,audience,title,message,created_at FROM notifications WHERE audience IN (?,?) ORDER BY id DESC LIMIT 20',('ALL',user['role'])).fetchall()
+    return jsonify([dict(x) for x in rows])
 
 if __name__=='__main__':
     print('JOY UNIVERSITY BUS TRACKING — development server')
