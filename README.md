@@ -17,6 +17,14 @@ Requires Python 3 and internet access for first-run package installation and map
 
 These are development-only accounts. Change/remove them before any real deployment. Only three roles are supported: **Admin, Student and Driver**. Transport Manager and Security accounts are not supported.
 
+## Administrator panel — 14 options
+
+The Admin account has a dedicated 14-item navigation: Dashboard, Students, Drivers, Buses, Routes, Stops, Trips, Live GPS, Attendance, Alerts, Reports, Maintenance, Permissions, and Settings & Logs.
+
+Database-backed Admin screens support creating and editing student, driver, bus, route, stop, trip, attendance, maintenance, alert, announcement and settings records. Supported records can be deleted where foreign-key/history safeguards permit it. Driver accounts are created with hashed passwords; student accounts can be created with a password from Student Management. Trip scheduling checks for an existing scheduled/active trip and refuses buses marked unavailable. Maintenance reports mark the related bus under maintenance; resolving the report returns it to Active. Admin changes are written to the audit log. Only the ADMIN role can call the management APIs; driver and student navigation remains restricted.
+
+The Reports screen provides CSV exports and database summary counts. The Alerts screen supports acknowledgement and Admin announcement publishing. Permissions is a read-only role capability summary: role boundaries are enforced by the server, not editable from the browser.
+
 ## Important data and GPS behavior
 - The ten starter buses and route names are setup records, not proof of an official route assignment.
 - No fake coordinates are seeded. If a bus has no GPS data, the UI says `NOT CONNECTED`.
@@ -47,7 +55,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-SQLite database `joy_bus.db` is created automatically in the project folder. Back it up before updates. The Render Blueprint stores it on its persistent disk; Vercel's `/tmp` storage is temporary. The starter currently has table initialization but not a production migration framework.
+SQLite database `joy_bus.db` is created automatically in the project folder. Back it up before updates. The Render Blueprint stores it on its persistent disk; Vercel's `/tmp` storage is temporary. The application initializes its SQLite tables automatically, but does not include a production migration framework.
 
 ## GPS provider example
 ```bash
