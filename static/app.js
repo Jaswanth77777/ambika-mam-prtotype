@@ -120,6 +120,7 @@ async function loadDriverPortal(){
  if($('driver-trip-list'))$('driver-trip-list').innerHTML=table;if($('driver-trip-summary'))$('driver-trip-summary').innerHTML=table;
  if($('driver-start-panel'))$('driver-start-panel').innerHTML=table;if($('driver-end-panel'))$('driver-end-panel').innerHTML=table;if($('driver-status-panel'))$('driver-status-panel').innerHTML=table;
  if($('driver-route-detail'))$('driver-route-detail').innerHTML=esc(b.route_name||'No route assigned. Ask the transport administrator to assign a route.');
+ if($('driver-attendance-panel'))$('driver-attendance-panel').innerHTML=(d.attendance||[]).length?'<table><thead><tr><th>STUDENT</th><th>REGISTER NO.</th><th>BOARDING TIME</th><th>STATUS</th></tr></thead><tbody>'+d.attendance.map(a=>'<tr><td>'+esc(a.student_name)+'</td><td>'+esc(a.register_no)+'</td><td>'+esc(a.boarding_time)+'</td><td>'+esc(a.status)+'</td></tr>').join('')+'</tbody></table>':'<div class="empty-state">No attendance records are available for your assigned bus.</div>';
  if($('driver-metrics'))$('driver-metrics').innerHTML=[['Assigned bus',b.bus_no||'—'],['Trips',t.length],['Active trips',t.filter(x=>x.status==='In progress').length]].map(a=>'<div class="metric-card"><div class="metric-top"><span>'+a[0]+'</span></div><div class="metric-value">'+esc(a[1])+'</div></div>').join('');
  await loadPortalNotifications('driver-notification-list');
  }catch(e){toast(e.message,'error')}
