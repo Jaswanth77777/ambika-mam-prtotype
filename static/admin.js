@@ -55,10 +55,8 @@ async function loadAdminResource(view){
   const cols=view==='admin-permissions'?['role','access']:view==='admin-settings'?['record_type','key','value','username','action','details','created_at']:['id',...p.fields.filter(f=>f!=='password')];
   $('admin-table-head').innerHTML='<tr>'+cols.map(c=>'<th>'+adminEsc(c.replaceAll('_',' ').toUpperCase())+'</th>').join('')+'<th>ACTIONS</th></tr>';
   $('admin-table-body').innerHTML=rows.map(row=>'<tr>'+cols.map(c=>'<td>'+adminEsc(row[c])+'</td>').join('')+'<td>'+(row.id&&view!=='admin-settings'&&view!=='admin-permissions'?'<button class="text-button" onclick="adminEditRecord(\''+p.resource+'\','+row.id+')">Edit</button> <button class="text-button" onclick="adminDeleteRecord(\''+p.resource+'\','+row.id+')">Delete</button>':'—')+'</td></tr>').join('')||'<tr><td colspan="'+(cols.length+1)+'">No records found.</td></tr>';
+  filterAdminRows();
  }catch(e){toast(e.message,'error')}
-}
-if(role==='ADMIN'){
- document.querySelectorAll('.nav-item[data-view^="admin-"]').forEach(n=>n.addEventListener('click',()=>navigate(n.dataset.view)));
 }
 
 async function loadAdminAnnouncements(){
