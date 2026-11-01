@@ -228,3 +228,6 @@ table td{font-size:11px;color:#554b5d}
 .joy-bus-icon .bus-direction{display:inline-block;font-size:19px;transform-origin:center;line-height:1}
 .joy-bus-icon .bus-map-marker.selected{background:#075fc5;color:#fff;border-color:#fff;box-shadow:0 0 0 5px #1677e633,0 5px 20px #102b4b66}
 .joy-bus-icon .bus-map-marker small{font-size:8px;font-weight:900;letter-spacing:.04em;color:#075fc5;background:#e8f3ff;padding:3px 5px;border-radius:5px}
+
+/* Configured route stop pins */
+.leaflet-interactive{cursor:pointer}.leaflet-popup-content{line-height:1.55}.map-canvas .leaflet-control-attribution{font-size:9px}

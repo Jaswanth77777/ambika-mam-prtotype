@@ -142,6 +142,45 @@ class PortalSmokeTests(unittest.TestCase):
         self.assertEqual(completed.status_code, 200)
         self.assertEqual(completed.get_json()["status"], "Completed")
 
+    def test_driver_browser_gps_updates_assigned_bus(self):
+        self.assertIn(self.login("driver", "Driver@123").status_code, (301, 302))
+        with self.client.session_transaction() as session:
+            csrf = session["csrf"]
+        response = self.client.post(
+            "/api/driver/location",
+            json={"latitude": 8.25, "longitude": 77.61, "speed": 4.0, "heading": 90, "accuracy": 8},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(response.status_code, 200, response.get_json())
+        buses = self.client.get("/api/buses").get_json()
+        self.assertEqual(len(buses), 1)
+        self.assertEqual(buses[0]["tracking_status"], "LIVE GPS")
+        self.assertAlmostEqual(buses[0]["lat"], 8.25)
+
+    def test_admin_can_create_mapped_route_stop_and_invalid_coordinates_are_rejected(self):
+        self.assertIn(self.login("admin", "Admin@123").status_code, (301, 302))
+        with self.client.session_transaction() as session:
+            csrf = session["csrf"]
+        headers = {"X-CSRF-Token": csrf}
+        invalid = self.client.post(
+            "/api/admin/stops",
+            json={"route_id": 2, "name": "Invalid map stop", "sequence": 2, "lat": 120, "lng": 77},
+            headers=headers,
+        )
+        self.assertEqual(invalid.status_code, 400)
+        created = self.client.post(
+            "/api/admin/stops",
+            json={"route_id": 2, "name": "CI Mapped Stop", "sequence": 2,
+                  "lat": 8.7, "lng": 77.6, "coord_status": "Test reference"},
+            headers=headers,
+        )
+        self.assertEqual(created.status_code, 200, created.get_json())
+        route_data = self.client.get("/api/routes").get_json()
+        stop = next(x for x in route_data["stops"] if x["name"] == "CI Mapped Stop")
+        self.assertAlmostEqual(stop["lat"], 8.7)
+        with portal.db_conn() as con:
+            con.execute("DELETE FROM stops WHERE name='CI Mapped Stop'")
+
     def test_admin_bus_write_requires_csrf_token(self):
         self.assertIn(self.login("admin", "Admin@123").status_code, (301, 302))
         response = self.client.post(

@@ -471,6 +471,21 @@ def admin_create_record(resource):
     table,allowed=ADMIN_RESOURCES[resource];data={k:d[k] for k in allowed if k in d and d[k] not in ('',None)}
     required={'students':['register_no','name'],'buses':['bus_no'],'routes':['route_code','name'],'stops':['route_id','name'],'trips':['bus_id'],'attendance':['student_id','boarding_time'],'maintenance':['bus_id','category','description'],'alerts':['category','message'],'notifications':['title','message']}[resource]
     if any(not data.get(k) for k in required):return jsonify({'error':'Required fields: '+', '.join(required)}),400
+    if resource=='stops':
+        try:
+            data['route_id']=int(data['route_id'])
+            data['sequence']=int(data.get('sequence',1))
+            if data['sequence']<1: raise ValueError()
+            if ('lat' in data) != ('lng' in data): raise ValueError()
+            if 'lat' in data:
+                data['lat']=float(data['lat']);data['lng']=float(data['lng'])
+                if not (-90<=data['lat']<=90 and -180<=data['lng']<=180): raise ValueError()
+        except (TypeError,ValueError):
+            return jsonify({'error':'Stop sequence must be positive. Latitude and longitude must both be valid coordinates.'}),400
+        with db_conn() as con:
+            if not con.execute('SELECT id FROM routes WHERE id=?',(data['route_id'],)).fetchone():
+                return jsonify({'error':'Select an existing route for this stop.'}),400
+        data.setdefault('coord_status','Needs transport-office verification')
     if resource=='buses' and data.get('driver_id'):
         with db_conn() as con:
             driver=con.execute("SELECT id FROM users WHERE id=? AND role='DRIVER' AND active=1",(data['driver_id'],)).fetchone()
@@ -517,6 +532,22 @@ def admin_update_record(resource,rid):
     elif resource in ADMIN_RESOURCES:
         table,allowed=ADMIN_RESOURCES[resource];data={k:d[k] for k in allowed if k in d}
         if not data:return jsonify({'error':'No editable fields supplied'}),400
+        if resource=='stops':
+            try:
+                if 'route_id' in data: data['route_id']=int(data['route_id'])
+                if 'sequence' in data:
+                    data['sequence']=int(data['sequence'])
+                    if data['sequence']<1: raise ValueError()
+                if ('lat' in data) != ('lng' in data): raise ValueError()
+                if 'lat' in data:
+                    data['lat']=float(data['lat']);data['lng']=float(data['lng'])
+                    if not (-90<=data['lat']<=90 and -180<=data['lng']<=180): raise ValueError()
+            except (TypeError,ValueError):
+                return jsonify({'error':'Stop sequence must be positive. Latitude and longitude must both be valid coordinates.'}),400
+            if 'route_id' in data:
+                with db_conn() as con:
+                    if not con.execute('SELECT id FROM routes WHERE id=?',(data['route_id'],)).fetchone():
+                        return jsonify({'error':'Select an existing route for this stop.'}),400
         if resource=='buses' and data.get('driver_id'):
             with db_conn() as con:
                 driver=con.execute("SELECT id FROM users WHERE id=? AND role='DRIVER' AND active=1",(data['driver_id'],)).fetchone()

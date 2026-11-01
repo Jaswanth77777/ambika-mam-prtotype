@@ -1,5 +1,5 @@
 const role=String(document.body.dataset.role||'STUDENT').trim().toUpperCase(), csrf=document.body.dataset.csrf||'';
-let buses=[], routes=[], stops=[], selectedBus=null, overviewMap=null, trackingMap=null, campusMarker=null, markers={overview:{},tracking:{}}, demoMarkers={}, demoAnimation=null, tileLayers={}, refreshTimer=null, modalKind='bus', driverWatch=null, viewHistory=[role==='ADMIN'?'overview':role==='STUDENT'?'student-dashboard':'driver-dashboard'];
+let buses=[], routes=[], stops=[], selectedBus=null, overviewMap=null, trackingMap=null, referenceLayers={overview:null,tracking:null}, markers={overview:{},tracking:{}}, demoMarkers={}, demoAnimation=null, tileLayers={}, refreshTimer=null, modalKind='bus', driverWatch=null, viewHistory=[role==='ADMIN'?'overview':role==='STUDENT'?'student-dashboard':'driver-dashboard'];
 const $=id=>document.getElementById(id); const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const statusClass=s=>s==='LIVE GPS'?'live':s==='STALE'?'stale':s==='DEMO GPS'?'demo':'none';
 function toast(msg,type='success'){const box=document.createElement('div');box.className='toast '+(type==='error'?'error':'success');box.textContent=msg;$('toast-stack').appendChild(box);setTimeout(()=>box.remove(),4200)}
@@ -8,7 +8,42 @@ function navigate(view,record=true){const allowedViews=({ADMIN:['overview','trac
 function goBack(){if(viewHistory.length>1){viewHistory.pop();const previous=viewHistory[viewHistory.length-1];navigate(previous,false)}else navigate(role==='ADMIN'?'overview':role==='STUDENT'?'student-dashboard':'driver-dashboard',false)}
 document.querySelectorAll('.nav-item').forEach(n=>n.addEventListener('click',()=>navigate(n.dataset.view)));
 document.addEventListener('keydown',e=>{if(e.altKey&&e.key==='ArrowLeft'){e.preventDefault();goBack()}});
-function initMap(which){const isOverview=which==='overview';const id=isOverview?'overview-map':'tracking-map';if(!$(id))return null;if(!window.L){$('connection-label').textContent='Map library unavailable';return null}const existing=isOverview?overviewMap:trackingMap;if(existing){setTimeout(()=>existing.invalidateSize(),80);return existing}const map=L.map(id,{zoomControl:true,preferCanvas:true}).setView([8.2436,77.6058],11);const standard=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'});const aerial=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,attribution:'Tiles &copy; Esri'});let fallbackAdded=false;standard.on('tileerror',()=>{if(!fallbackAdded&&map.hasLayer(standard)){fallbackAdded=true;map.removeLayer(standard);const fallback=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap &copy; CARTO'});tileLayers.standard=fallback;fallback.addTo(map);$('connection-label').textContent='Using alternate map tiles'}});standard.addTo(map);if(isOverview)overviewMap=map;else{trackingMap=map;tileLayers={standard,aerial};campusMarker=L.marker([8.2436,77.6058],{title:'JOY University campus'}).addTo(map).bindPopup('<b>JOY University</b><br>Campus reference point. Bus positions appear only after GPS is received.');}map.on('tileerror',()=>{$('connection-label').textContent='Map tiles unavailable';});map.whenReady(()=>setTimeout(()=>map.invalidateSize(),80));return map}
+function initMap(which){
+ const isOverview=which==='overview',id=isOverview?'overview-map':'tracking-map';
+ if(!$(id))return null;
+ if(!window.L){$('connection-label').textContent='Map library loading';return null}
+ const existing=isOverview?overviewMap:trackingMap;
+ if(existing){setTimeout(()=>existing.invalidateSize(),100);return existing}
+ const map=L.map(id,{zoomControl:true,preferCanvas:true}).setView([8.2436,77.6058],12);
+ const standard=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'});
+ const aerial=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,attribution:'Tiles &copy; Esri'});
+ let fallbackAdded=false;
+ const useFallback=()=>{
+  if(fallbackAdded)return;
+  fallbackAdded=true;
+  if(map.hasLayer(standard))map.removeLayer(standard);
+  const alternate=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap &copy; CARTO'});
+  if(!isOverview)tileLayers.standard=alternate;
+  alternate.addTo(map);
+  $('connection-label').textContent='Using alternate map tiles';
+ };
+ standard.on('tileerror',useFallback);
+ if(isOverview)overviewMap=map;else{trackingMap=map;tileLayers={standard,aerial};}
+ standard.addTo(map);
+ map.whenReady(()=>{setTimeout(()=>map.invalidateSize(),100);renderMapReferenceLayers(which,map)});
+ return map;
+}
+function renderMapReferenceLayers(which,map){
+ if(!map||!window.L)return;
+ if(referenceLayers[which])map.removeLayer(referenceLayers[which]);
+ const group=L.layerGroup();
+ L.marker([8.2436,77.6058]).addTo(group).bindPopup('<b>JOY University campus reference</b><br>Reference point only; this is not a live bus position.');
+ const mapped=(stops||[]).filter(s=>s.lat!==null&&s.lat!==undefined&&s.lat!==''&&s.lng!==null&&s.lng!==undefined&&s.lng!==''&&Number.isFinite(Number(s.lat))&&Number.isFinite(Number(s.lng)));
+ mapped.forEach(s=>{
+  L.circleMarker([Number(s.lat),Number(s.lng)],{radius:7,color:'#fff',weight:2,fillColor:'#7654dc',fillOpacity:.95}).addTo(group).bindPopup('<b>'+esc(s.route_code||'Route')+' · '+esc(s.name)+'</b><br>Stop '+esc(s.sequence)+'<br>'+esc(s.coord_status||'Coordinate status not set'));
+ });
+ group.addTo(map);referenceLayers[which]=group;
+}
 function initTrackingMap(){return initMap('tracking')}
 function setMapMode(mode){const map=initTrackingMap();if(!map)return;Object.values(tileLayers).forEach(l=>{if(map.hasLayer(l))map.removeLayer(l)});(mode==='satellite'?tileLayers.aerial:tileLayers.standard).addTo(map);$('mode-2d').classList.toggle('active',mode==='2d');$('mode-satellite').classList.toggle('active',mode==='satellite')}
 function markerIcon(bus,selected=false,heading=0){const cls=statusClass(bus.tracking_status);return L.divIcon({className:'joy-bus-icon',html:`<div class="bus-map-marker ${cls} ${selected?'selected':''}"><span class="bus-direction" style="transform:rotate(${Number(heading)||0}deg)">🚌</span><b>${esc(bus.bus_no)}</b></div>`,iconSize:[112,38],iconAnchor:[56,19]})}
@@ -50,7 +85,7 @@ function renderMetrics(c){const entries=[['Total fleet',c.buses,'Registered buse
 function renderMiniFleet(){$('fleet-mini-list').innerHTML=buses.slice(0,6).map(b=>`<div class="mini-bus-row" onclick="openBusFromDashboard(${b.id})"><div class="bus-avatar">🚌</div><div class="mini-bus-main"><b>${esc(b.bus_no)}</b><span>${esc(b.route_name||'Route not assigned')}</span></div><span class="mini-status ${statusClass(b.tracking_status)}">${esc(b.tracking_status)}</span></div>`).join('')||'<div class="empty-state">No buses found.</div>'}
 async function openBusFromDashboard(id){navigate('tracking');await new Promise(resolve=>setTimeout(resolve,180));initTrackingMap();trackingMap?.invalidateSize();await refreshBuses();await selectBus(Number(id),true)}
 function renderImports(rows){if(!rows?.length){$('recent-imports').innerHTML='<div class="empty-state">No imports recorded yet.</div>';return}$('recent-imports').innerHTML=`<table><thead><tr><th>FILE</th><th>CATEGORY</th><th>RESULT</th><th>DATE</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.filename)}</td><td>${esc(r.category)}</td><td><span class="status-chip ${r.failed?'warning':'success'}">${r.imported} imported · ${r.failed} failed</span></td><td>${esc((r.created_at||'').replace('T',' ').slice(0,16))}</td></tr>`).join('')}</tbody></table>`}
-async function refreshBuses(){try{buses=await getJSON('/api/buses');Object.keys(demoMarkers).forEach(k=>{const b=buses.find(x=>String(x.id)===String(k));if(b&&b.lat!=null&&b.lng!=null){trackingMap?.removeLayer(demoMarkers[k].marker);trackingMap?.removeLayer(demoMarkers[k].routeLine);delete demoMarkers[k];if(demoAnimation){cancelAnimationFrame(demoAnimation);demoAnimation=null}}});renderBusList();renderBusTable();upsertMarkers('overview',initMap('overview'));upsertMarkers('tracking',initTrackingMap());if(selectedBus)renderSelectedDetail();else if(trackingMap)fitFleet();const live=buses.some(b=>b.tracking_status==='LIVE GPS');$('nav-live-dot').style.background=live?'#44c8a1':'#a6b2c3'}catch(e){$('connection-label').textContent='Connection issue'}}
+async function refreshBuses(){try{buses=await getJSON('/api/buses');Object.keys(demoMarkers).forEach(k=>{const b=buses.find(x=>String(x.id)===String(k));if(b&&b.lat!=null&&b.lng!=null){trackingMap?.removeLayer(demoMarkers[k].marker);trackingMap?.removeLayer(demoMarkers[k].routeLine);delete demoMarkers[k];if(demoAnimation){cancelAnimationFrame(demoAnimation);demoAnimation=null}}});renderBusList();renderBusTable();if(role==='ADMIN')upsertMarkers('overview',initMap('overview'));if($('view-tracking')?.classList.contains('active'))upsertMarkers('tracking',initTrackingMap());if(selectedBus)renderSelectedDetail();else if(trackingMap)fitFleet();const live=buses.some(b=>b.tracking_status==='LIVE GPS');$('nav-live-dot').style.background=live?'#44c8a1':'#a6b2c3'}catch(e){$('connection-label').textContent='Connection issue'}}
 async function openMyBusTracking(){const data=role==='STUDENT'?window.studentData:window.driverData;const bus=data?.bus;if(!bus?.id){toast('No bus is assigned to this account yet.','error');return}navigate('tracking');await refreshBuses();if(!trackingMap)trackingMap=initTrackingMap();selectBus(Number(bus.id),true)}
 function renderBusList(){if(!$('bus-list'))return;const q=($('bus-search')?.value||'').toLowerCase(),route=$('route-filter')?.value||'',status=$('status-filter')?.value||'';const filtered=buses.filter(b=>(!q||`${b.bus_no} ${b.route_name||''}`.toLowerCase().includes(q))&&(!route||String(b.route_id)===route)&&(!status||b.tracking_status===status));$('bus-list-count').textContent=`${filtered.length} of ${buses.length} buses`;$('bus-list').innerHTML=filtered.map(b=>`<div class="bus-list-item ${selectedBus===b.id?'selected':''}" onclick="selectBus(${b.id},true)"><div class="bus-avatar">🚌</div><div class="bus-list-copy"><b>${esc(b.bus_no)}</b><span>${esc(b.route_name||'Route not assigned')}</span></div><span class="gps-tag ${statusClass(b.tracking_status)}">${esc(b.tracking_status)}</span></div>`).join('')||'<div class="empty-state">No matching buses.</div>'}
 async function startDemoBusMotion(bus){
@@ -149,7 +184,7 @@ async function showHistory(id){
  }catch(e){toast(e.message,'error')}
 }
 function renderBusTable(){if(!$('fleet-table'))return;const q=($('fleet-search')?.value||'').toLowerCase(),rows=buses.filter(b=>`${b.bus_no} ${b.registration||''} ${b.route_name||''}`.toLowerCase().includes(q));$('fleet-total').textContent=`${rows.length} buses`;$('fleet-table').innerHTML=rows.map(b=>`<tr><td><div class="bus-cell"><span class="small-bus-icon">🚌</span><b>${esc(b.bus_no)}</b></div></td><td>${esc(b.registration||'—')}</td><td>${esc(b.route_name||'Unassigned')}</td><td>${b.capacity}</td><td><span class="status-chip ${b.status==='Active'?'success':b.status==='Maintenance'?'warning':'neutral'}">${esc(b.status)}</span></td><td><span class="gps-tag ${statusClass(b.tracking_status)}">${esc(b.tracking_status)}</span></td><td>${esc(formatAge(b.age_seconds))}</td><td><button class="text-button" onclick="navigate('tracking');selectBus(${b.id},true)">Map ↗</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty-state">No buses found.</td></tr>'}
-async function loadRoutes(){try{const d=await getJSON('/api/routes');routes=d.routes;stops=d.stops;$('route-filter').innerHTML='<option value="">All routes</option>'+routes.map(r=>`<option value="${r.id}">${esc(r.route_code)} · ${esc(r.name)}</option>`).join('');$('route-grid').innerHTML=routes.map(r=>`<div class="route-card"><div class="route-card-head"><div class="route-code">${esc(r.route_code)}</div><div><h3>${esc(r.name)}</h3><p>${esc(r.origin||'Start not set')} → ${esc(r.destination||'Destination not set')}</p></div></div><div class="route-meta"><span>▰ ${r.bus_count} buses</span><span>⌖ ${r.stop_count} stops</span><span>${r.active?'Active':'Inactive'}</span></div><div class="route-notes">${esc(r.notes||'Route details pending verification')}</div></div>`).join('')}catch(e){toast(e.message,'error')}}
+async function loadRoutes(){try{const d=await getJSON('/api/routes');routes=d.routes;stops=d.stops;renderMapReferenceLayers('overview',overviewMap);renderMapReferenceLayers('tracking',trackingMap);$('route-filter').innerHTML='<option value="">All routes</option>'+routes.map(r=>`<option value="${r.id}">${esc(r.route_code)} · ${esc(r.name)}</option>`).join('');$('route-grid').innerHTML=routes.map(r=>`<div class="route-card"><div class="route-card-head"><div class="route-code">${esc(r.route_code)}</div><div><h3>${esc(r.name)}</h3><p>${esc(r.origin||'Start not set')} → ${esc(r.destination||'Destination not set')}</p></div></div><div class="route-meta"><span>▰ ${r.bus_count} buses</span><span>⌖ ${r.stop_count} stops</span><span>${r.active?'Active':'Inactive'}</span></div><div class="route-notes">${esc(r.notes||'Route details pending verification')}</div></div>`).join('')}catch(e){toast(e.message,'error')}}
 async function loadStudents(){try{const d=await getJSON('/api/students');const q=($('student-search')?.value||'').toLowerCase();const rows=d.filter(x=>`${x.name} ${x.register_no}`.toLowerCase().includes(q));$('student-table').innerHTML=rows.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.register_no)}</td><td>${esc(x.department||'—')}</td><td>${esc(x.academic_year||'—')}</td><td>${esc(x.bus_no||'—')}</td><td>${esc(x.route_name||'—')}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-state">No student records. Import a student CSV/XLSX to get started.</td></tr>'}catch(e){$('student-table').innerHTML='<tr><td colspan="6" class="empty-state">Student data endpoint unavailable.</td></tr>'}}
 async function loadAlerts(){try{const data=await getJSON('/api/alerts');$('alerts-list').innerHTML=data.map(a=>`<div class="alert-row"><div class="alert-symbol">!</div><div class="alert-copy"><b>${esc(a.category)} · ${esc(a.bus_no||'System')}</b><p>${esc(a.message)}</p><small>${esc(a.created_at)} · ${esc(a.status)}</small></div>${a.status==='Open'&&role==='ADMIN'?`<button class="btn btn-secondary" onclick="ackAlert(${a.id})">Acknowledge</button>`:''}</div>`).join('')||'<div class="empty-state">No alerts recorded. Stale GPS is indicated on the map and fleet list.</div>'}catch(e){toast(e.message,'error')}}
 async function ackAlert(id){try{const r=await fetch(`/api/alerts/${id}/ack`,{method:'POST',headers:{'X-CSRF-Token':csrf}});const d=await r.json();if(!r.ok)throw new Error(d.error);toast('Alert acknowledged');loadAlerts();loadOverview()}catch(e){toast(e.message,'error')}}
@@ -242,4 +277,16 @@ function startDriverGPS(){if(!navigator.geolocation){toast('This browser does no
 function stopDriverGPS(){if(driverWatch!==null)navigator.geolocation.clearWatch(driverWatch);driverWatch=null;if($('gps-start'))$('gps-start').disabled=false;if($('gps-stop'))$('gps-stop').disabled=true;toast('GPS sharing stopped.')}
 async function checkIntegration(){try{const d=await getJSON('/health');if(d.gps_ingestion==='configured'){$('gps-integration-text').textContent='Authenticated tracking token configured';$('gps-integration-status').textContent='Configured';$('gps-integration-status').className='status-chip success'}}catch(e){}}
 async function boot(){setupRole();$('today-date').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});if(role==='ADMIN'){initMap('overview');await loadOverview();}await refreshBuses();await loadRoutes();checkIntegration();refreshTimer=setInterval(()=>{refreshBuses();if(role==='ADMIN'&&$('view-overview').classList.contains('active'))loadOverview();},15000);}
-boot();
+function ensureLeaflet(){
+ if(window.L)return Promise.resolve(true);
+ return new Promise(resolve=>{
+  const sources=['https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js','https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js'];
+  let index=0;
+  const next=()=>{
+   if(index>=sources.length){resolve(false);return}
+   const script=document.createElement('script');script.src=sources[index++];script.onload=()=>resolve(!!window.L);script.onerror=next;document.head.appendChild(script);
+  };
+  next();
+ });
+}
+ensureLeaflet().then(available=>{if(!available)toast('Map library could not load. Check your internet connection or CDN access.','error');boot()});
