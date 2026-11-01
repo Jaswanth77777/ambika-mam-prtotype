@@ -565,6 +565,20 @@ def driver_report_issue():
     audit('driver_'+kind+'_reported',description[:300])
     return jsonify({'ok':True})
 
+@app.post('/api/account/password')
+@login_required
+def change_own_password():
+    if request.headers.get('X-CSRF-Token')!=session.get('csrf'):return jsonify({'error':'Session expired; reload the page'}),403
+    d=request.get_json(silent=True) or {};old=str(d.get('current_password',''));new=str(d.get('new_password',''))
+    if len(new)<8:return jsonify({'error':'New password must be at least 8 characters'}),400
+    user=current_user()
+    with db_conn() as con:
+        row=con.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
+        if not row or not check_password_hash(row['password_hash'],old):return jsonify({'error':'Current password is incorrect'}),400
+        con.execute('UPDATE users SET password_hash=? WHERE id=?',(generate_password_hash(new),user['id']))
+    audit('password_changed','Self-service password update')
+    return jsonify({'ok':True})
+
 @app.get('/api/notifications')
 @login_required
 def user_notifications():
