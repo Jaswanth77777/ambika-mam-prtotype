@@ -426,7 +426,7 @@ def admin_delete_record(resource,rid):
         with db_conn() as con:
             if con.execute('SELECT id FROM buses WHERE driver_id=?',(rid,)).fetchone():return jsonify({'error':'Unassign this driver from buses before deleting'}),409
             if con.execute('SELECT id FROM trips WHERE driver_id=?',(rid,)).fetchone():return jsonify({'error':'Driver has trip history; deactivate the account instead'}),409
-            cur=con.execute(\"DELETE FROM users WHERE id=? AND role='DRIVER'\",(rid,))
+            cur=con.execute("DELETE FROM users WHERE id=? AND role='DRIVER'",(rid,))
             if not cur.rowcount:return jsonify({'error':'Driver not found'}),404
         audit('driver_deleted',str(rid));return jsonify({'ok':True})
     if resource=='students':
@@ -435,7 +435,7 @@ def admin_delete_record(resource,rid):
             if not row:return jsonify({'error':'Student not found'}),404
             if con.execute('SELECT id FROM attendance WHERE student_id=?',(rid,)).fetchone():return jsonify({'error':'Student has attendance history; retain the record for audit'}),409
             con.execute('DELETE FROM students WHERE id=?',(rid,))
-            con.execute(\"DELETE FROM users WHERE username=? AND role='STUDENT'\",(row['register_no'].lower(),))
+            con.execute("DELETE FROM users WHERE username=? AND role='STUDENT'",(row['register_no'].lower(),))
         audit('student_deleted',str(rid));return jsonify({'ok':True})
     if resource not in ADMIN_RESOURCES or resource=='attendance':return jsonify({'error':'This record cannot be deleted from this module'}),400
     table=ADMIN_RESOURCES[resource][0]
