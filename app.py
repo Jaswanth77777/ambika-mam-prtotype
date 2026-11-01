@@ -364,7 +364,8 @@ def admin_create_record(resource):
             with db_conn() as con: con.execute("INSERT INTO users(username,password_hash,role,full_name,created_at) VALUES(?,?,?,?,?)",(username,generate_password_hash(password),'DRIVER',name,now_iso()))
         except sqlite3.IntegrityError:return jsonify({'error':'Username already exists'}),409
         audit('driver_created',username);return jsonify({'ok':True})
-    if resource=='students' and d.get('password'):
+    if resource=='students':
+        if len(str(d.get('password','')))<8:return jsonify({'error':'Student account password is required (8+ characters)'}),400
         username=str(d.get('username') or d.get('register_no') or '').strip().lower()
         if len(str(d['password']))<8:return jsonify({'error':'Student password must be at least 8 characters'}),400
         try:
