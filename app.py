@@ -350,7 +350,7 @@ def import_file(category):
                             con.execute('UPDATE students SET name=?,department=?,academic_year=?,phone=?,bus_id=?,route_id=? WHERE register_no=?',(*vals,reg))
                         skipped+=1
                     else:
-                        con.execute('INSERT INTO students(name,department,academic_year,phone,bus_id,route_id,register_no) VALUES(?,?,?,?,?,?,?)', vals)
+                        con.execute('INSERT INTO students(name,department,academic_year,phone,bus_id,route_id,register_no) VALUES(?,?,?,?,?,?,?)',(*vals,reg))
                         imported+=1
                     if mode!='add_only' or not existing:
                         account=con.execute('SELECT id,role FROM users WHERE username=?',(reg.lower(),)).fetchone()
