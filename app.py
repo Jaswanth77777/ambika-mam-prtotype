@@ -583,6 +583,23 @@ def change_own_password():
     audit('password_changed','Self-service password update')
     return jsonify({'ok':True})
 
+@app.post('/api/driver/attendance')
+@roles_required('DRIVER')
+def driver_record_attendance():
+    if request.headers.get('X-CSRF-Token')!=session.get('csrf'):return jsonify({'error':'Session expired; reload the page'}),403
+    d=request.get_json(silent=True) or {};reg=str(d.get('register_no','')).strip();user=current_user()
+    if not reg:return jsonify({'error':'Student register number is required'}),400
+    with db_conn() as con:
+        bus=con.execute('SELECT id FROM buses WHERE driver_id=? ORDER BY id LIMIT 1',(user['id'],)).fetchone()
+        if not bus:return jsonify({'error':'No bus is assigned to this driver'}),409
+        trip=con.execute("SELECT id FROM trips WHERE driver_id=? AND bus_id=? AND status='In progress' ORDER BY id DESC LIMIT 1",(user['id'],bus['id'])).fetchone()
+        if not trip:return jsonify({'error':'Start your assigned trip before recording boarding'}),409
+        student=con.execute('SELECT id FROM students WHERE register_no=? AND bus_id=?',(reg,bus['id'])).fetchone()
+        if not student:return jsonify({'error':'Student is not assigned to your bus'}),404
+        con.execute('INSERT INTO attendance(student_id,bus_id,trip_id,boarding_time,status) VALUES(?,?,?,?,?)',(student['id'],bus['id'],trip['id'],now_iso(),'Boarded'))
+    audit('driver_attendance_recorded',reg)
+    return jsonify({'ok':True})
+
 @app.get('/api/notifications')
 @login_required
 def user_notifications():
