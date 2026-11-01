@@ -32,7 +32,7 @@ The import page supports category CSV and `.xlsx` files, up to 8 MB. Download th
 
 ### Vercel (fixes the function invocation error)
 
-The repository includes `api/index.py` and `vercel.json` to expose the Flask application through Vercel's Python runtime. Pushes to `main` should trigger the connected Vercel project. In Vercel Project Settings → Environment Variables, set `SECRET_KEY` to a long random value, `INITIAL_ADMIN_PASSWORD` to a strong unique password, and `COOKIE_SECURE` to `1`. Redeploy after setting them. The Vercel `/tmp` SQLite database is temporary and can reset between function instances; use the Render persistent-disk deployment below for actual records.
+Vercel now detects Flask applications directly from the root `app.py` and `requirements.txt`; no custom function-routing file is needed. This avoids routing every request through a legacy function configuration. Pushes to `main` should trigger the connected Vercel project. In Vercel Project Settings → Environment Variables, set `SECRET_KEY` to a long random value, `INITIAL_ADMIN_PASSWORD` to a strong unique password, and `COOKIE_SECURE` to `1`. Redeploy after setting them. The Vercel `/tmp` SQLite database is temporary and can reset between function instances; use the Render persistent-disk deployment below for actual records.
 
 ### Render (persistent SQLite deployment)
 
@@ -75,5 +75,4 @@ The dashboard now shows different navigation and quick actions by account role:
 - **Admin:** fleet, routes, student transport, imports, alerts, reports and settings.
 - **Driver:** overview, tracking, routes, alerts and browser GPS sharing for the assigned bus.
 - **Student:** overview, bus tracking and route information only (read-only; no fleet management or other students' records).
-- 
 Selecting a bus without GPS shows a clearly labelled **DEMO PREVIEW** that moves along an illustrative campus loop. The loop is not an official road route and must never be treated as a real bus location. Real tracking requires device GPS or the driver's permitted location sharing. Map tiles require an internet connection.
