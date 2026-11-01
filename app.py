@@ -316,6 +316,7 @@ def import_file(category):
     records=[norm(r) for r in records]; imported=skipped=failed=0; errors=[]
     with db_conn() as con:
         for idx,row in enumerate(records,start=2):
+            con.execute('SAVEPOINT import_row')
             try:
                 if category=='buses':
                     no=str(row.get('bus_number') or row.get('bus_no') or '').strip().upper()
@@ -345,10 +346,25 @@ def import_file(category):
                     existing=con.execute('SELECT id FROM students WHERE register_no=?',(reg,)).fetchone()
                     vals=(name,str(row.get('department') or '')[:100],str(row.get('academic_year') or '')[:30],str(row.get('phone_number') or row.get('phone') or '')[:30],bus['id'] if bus else None,route['id'] if route else (bus['route_id'] if bus else None))
                     if existing:
-                        if mode!='add_only': con.execute('UPDATE students SET name=?,department=?,academic_year=?,phone=?,bus_id=?,route_id=? WHERE register_no=?',(*vals,reg))
+                        if mode!='add_only':
+                            con.execute('UPDATE students SET name=?,department=?,academic_year=?,phone=?,bus_id=?,route_id=? WHERE register_no=?',(*vals,reg))
                         skipped+=1
-                    else: con.execute('INSERT INTO students(name,department,academic_year,phone,bus_id,route_id,register_no) VALUES(?,?,?,?,?,?,?)', (vals[0],vals[1],vals[2],vals[3],vals[4],vals[5],reg)); imported+=1
+                    else:
+                        con.execute('INSERT INTO students(name,department,academic_year,phone,bus_id,route_id,register_no) VALUES(?,?,?,?,?,?,?)', vals)
+                        imported+=1
+                    if mode!='add_only':
+                        account=con.execute('SELECT id,role FROM users WHERE username=?',(reg.lower(),)).fetchone()
+                        if account and account['role']!='STUDENT': raise ValueError('Register number is already used by a non-student account')
+                        initial_password=str(row.get('initial_password') or row.get('password') or '')
+                        if not account:
+                            if len(initial_password)<8: raise ValueError('Initial Password (8+ characters) is required to create the student login')
+                            con.execute('INSERT INTO users(username,password_hash,role,full_name,created_at) VALUES(?,?,?,?,?)',(reg.lower(),generate_password_hash(initial_password),'STUDENT',name[:120],now_iso()))
+                        else:
+                            con.execute('UPDATE users SET full_name=? WHERE id=?',(name[:120],account['id']))
+            con.execute('RELEASE import_row')
             except Exception as e:
+                con.execute('ROLLBACK TO import_row')
+                con.execute('RELEASE import_row')
                 failed+=1; errors.append({'row':idx,'error':str(e)[:180]})
         con.execute('INSERT INTO import_jobs(filename,category,imported,skipped,failed,created_at,summary) VALUES(?,?,?,?,?,?,?)',(filename,category,imported,skipped,failed,now_iso(),json.dumps(errors[:500])))
     audit('excel_import',f'{filename}: {imported} imported, {skipped} updated/existing, {failed} failed')
@@ -357,7 +373,7 @@ def import_file(category):
 @app.get('/templates/<category>.csv')
 @login_required
 def templates_csv(category):
-    headers={'buses':['Bus Number','Vehicle Registration Number','Bus Capacity','Bus Model','Bus Status','Assigned Route'],'routes':['Route ID','Route Name','Starting Point','Destination','Route Distance'],'students':['Student Name','Register Number','Department','Academic Year','Phone Number','Assigned Bus Number','Assigned Route','Assigned Bus Stop']}
+    headers={'buses':['Bus Number','Vehicle Registration Number','Bus Capacity','Bus Model','Bus Status','Assigned Route'],'routes':['Route ID','Route Name','Starting Point','Destination','Route Distance'],'students':['Student Name','Register Number','Department','Academic Year','Phone Number','Assigned Bus Number','Assigned Route','Assigned Bus Stop','Initial Password']}
     if category not in headers: return 'Not found',404
     output=io.StringIO(); writer=csv.writer(output); writer.writerow(headers[category])
     return send_file(io.BytesIO(output.getvalue().encode('utf-8-sig')),mimetype='text/csv',as_attachment=True,download_name=f'JOY-{category}-template.csv')
