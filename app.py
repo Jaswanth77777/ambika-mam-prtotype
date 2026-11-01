@@ -101,6 +101,18 @@ def audit(action, details=''):
     u=current_user()
     with db_conn() as con: con.execute('INSERT INTO audit_logs(user_id,action,details,created_at) VALUES(?,?,?,?)',(u['id'] if u else None,action,details[:500],now_iso()))
 
+@app.get('/healthz')
+def healthz():
+    """Lightweight readiness check for hosting platforms and uptime monitors."""
+    try:
+        with db_conn() as con:
+            con.execute('SELECT 1').fetchone()
+        return jsonify({'status':'ok','service':'joy-university-smart-bus'}), 200
+    except sqlite3.Error:
+        app.logger.exception('Database readiness check failed')
+        return jsonify({'status':'error','service':'joy-university-smart-bus'}), 503
+
+
 @app.get('/login')
 def login():
     if current_user(): return redirect(url_for('home'))
@@ -169,7 +181,9 @@ def receive_location():
     stamp=data.get('timestamp') or now_iso()
     try: dt=datetime.fromisoformat(stamp.replace('Z','+00:00'))
     except ValueError: return jsonify({'error':'Timestamp must be ISO-8601'}),400
-    if (datetime.now(timezone.utc)-dt.astimezone(timezone.utc)).total_seconds()>300: return jsonify({'error':'GPS update is too old'}),400
+    age_seconds=(datetime.now(timezone.utc)-dt.astimezone(timezone.utc)).total_seconds()
+    if age_seconds>300: return jsonify({'error':'GPS update is too old'}),400
+    if age_seconds < -60: return jsonify({'error':'GPS timestamp cannot be more than 60 seconds in the future'}),400
     with db_conn() as con:
         if not con.execute('SELECT id FROM buses WHERE id=?',(bus_id,)).fetchone(): return jsonify({'error':'Unknown bus'}),404
         con.execute('INSERT INTO locations(bus_id,lat,lng,speed,heading,accuracy,device_id,source,recorded_at) VALUES(?,?,?,?,?,?,?,?,?)',(bus_id,lat,lng,speed,heading,accuracy,str(data.get('device_id',''))[:100],'device',dt.astimezone(timezone.utc).isoformat(timespec='seconds')))
