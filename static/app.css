@@ -214,3 +214,7 @@ table td{font-size:11px;color:#554b5d}
 .login-form-new input:focus{border-color:#6d35a5;box-shadow:0 0 0 3px rgba(109,53,165,.12);outline:0}
 .login-form-new .btn{background:linear-gradient(110deg,#6d35a5,#4b176f);border-color:#6d35a5}
 @media(max-width:760px){.login-content-new{min-height:0}.login-form-new{margin-top:0;padding-top:0}}
+
+/* Selected bus route preview marker */
+.bus-map-marker.selected.demo{background:#1458a8;color:#fff;border:2px solid #fff;box-shadow:0 0 0 4px #2878e833,0 6px 16px #17274640;padding:7px 9px}
+.bus-map-marker.demo small{display:inline-block;margin-left:4px;padding:2px 4px;border-radius:4px;background:#fff;color:#1458a8;font-size:7px;font-weight:900;letter-spacing:.04em;vertical-align:1px}
