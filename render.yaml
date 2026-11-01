@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: joy-university-smart-bus
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    disk:
+      name: joy-bus-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: JOY_DB_PATH
+        value: /var/data/joy_bus.db
+      - key: SECRET_KEY
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "1"
+      - key: INITIAL_ADMIN_PASSWORD
+        sync: false
+      - key: TRACKING_API_TOKEN
+        sync: false
