@@ -49,6 +49,25 @@ class PortalSmokeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("buses", response.get_json())
 
+    def test_student_portal_is_limited_to_assigned_transport(self):
+        self.assertIn(self.login("student", "Student@123").status_code, (301, 302))
+        profile = self.client.get("/api/student/me")
+        self.assertEqual(profile.status_code, 200)
+        self.assertEqual(profile.get_json()["student"]["register_no"], "student")
+        buses = self.client.get("/api/buses")
+        self.assertEqual(buses.status_code, 200)
+        self.assertEqual(len(buses.get_json()), 1)
+        self.assertEqual(self.client.get("/api/overview").status_code, 403)
+
+    def test_driver_portal_exposes_only_assigned_bus_and_trips(self):
+        self.assertIn(self.login("driver", "Driver@123").status_code, (301, 302))
+        profile = self.client.get("/api/driver/me")
+        self.assertEqual(profile.status_code, 200)
+        self.assertEqual(profile.get_json()["bus"]["bus_no"], "JOY-01")
+        self.assertGreaterEqual(len(profile.get_json()["trips"]), 1)
+        self.assertEqual(len(self.client.get("/api/buses").get_json()), 1)
+        self.assertEqual(self.client.get("/api/admin/reports").status_code, 403)
+
     def test_admin_bus_write_requires_csrf_token(self):
         self.assertIn(self.login("admin", "Admin@123").status_code, (301, 302))
         response = self.client.post(
