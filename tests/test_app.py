@@ -68,6 +68,9 @@ class PortalSmokeTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.get_json()["ok"])
+        # Keep the shared import-time test database isolated for test_smoke.py.
+        with portal.db_conn() as con:
+            con.execute("DELETE FROM buses WHERE bus_no=?", ("CI-SMOKE-01",))
 
 
 if __name__ == "__main__":
