@@ -1,4 +1,4 @@
-const role=document.body.dataset.role||'STUDENT', csrf=document.body.dataset.csrf||'';
+const role=String(document.body.dataset.role||'STUDENT').trim().toUpperCase(), csrf=document.body.dataset.csrf||'';
 let buses=[], routes=[], stops=[], selectedBus=null, overviewMap=null, trackingMap=null, markers={overview:{},tracking:{}}, demoMarkers={}, demoAnimation=null, tileLayers={}, refreshTimer=null, modalKind='bus', driverWatch=null, viewHistory=['overview'];
 const $=id=>document.getElementById(id); const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const statusClass=s=>s==='LIVE GPS'?'live':s==='STALE'?'stale':s==='DEMO GPS'?'demo':'none';
@@ -66,9 +66,18 @@ function setupRole(){
     STUDENT:['overview','tracking','routes'],
   };
   const allowed=permissions[role]||permissions.STUDENT;
-  document.querySelectorAll('.nav-item[data-view]').forEach(el=>{if(!allowed.includes(el.dataset.view))el.classList.add('hidden')});
-  document.querySelectorAll('.admin-only').forEach(el=>{if(role!=='ADMIN')el.classList.add('hidden')});
-   document.querySelectorAll('.non-admin-only').forEach(el=>{if(role==='ADMIN')el.classList.add('hidden')});
+  // Rebuild navigation visibility on every load so cached/stale hidden classes cannot
+  // leave the Admin Portal menu missing after an account switch.
+  document.querySelectorAll('.nav-item[data-view]').forEach(el=>{
+    const isAdminItem=el.classList.contains('admin-only');
+    const isPersonalItem=el.classList.contains('non-admin-only');
+    const visible=role==='ADMIN' ? isAdminItem : (isPersonalItem && allowed.includes(el.dataset.view));
+    el.classList.toggle('hidden',!visible);
+  });
+  document.querySelectorAll('.nav-section-label.admin-only').forEach(el=>el.classList.toggle('hidden',role!=='ADMIN'));
+  document.querySelectorAll('.nav-section-label.non-admin-only').forEach(el=>el.classList.toggle('hidden',role==='ADMIN'));
+  document.querySelectorAll('.admin-only:not(.nav-item):not(.nav-section-label)').forEach(el=>el.classList.toggle('hidden',role!=='ADMIN'));
+  document.querySelectorAll('.non-admin-only:not(.nav-item):not(.nav-section-label)').forEach(el=>el.classList.toggle('hidden',role==='ADMIN'));
   const activeView=document.querySelector('.view.active')?.id.replace('view-','');
   document.querySelectorAll('.nav-item[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===activeView&&!el.classList.contains('hidden')));
   document.querySelectorAll('.view').forEach(v=>{const name=v.id.replace('view-','');if(!allowed.includes(name))v.classList.remove('active')});
