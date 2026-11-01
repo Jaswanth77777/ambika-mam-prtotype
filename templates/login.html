@@ -1,1 +1,45 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JOY University · Sign in</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}"></head><body class="login-page"><div class="login-shell"><section class="login-brand"><div class="brand-lockup"><img src="{{ url_for('static',filename='assets/joy-university-logo.jpg') }}" alt="JOY University logo"><div><b>JOY UNIVERSITY</b><span>TRANSPORT OPERATIONS</span></div></div><div class="brand-copy"><div class="eyebrow light">CAMPUS MOBILITY PLATFORM</div><h1>Every route.<br><em>In control.</em></h1><p>Manage the fleet, coordinate transport records, and monitor connected buses from one clear workspace.</p><div class="brand-stats"><div><strong>10</strong><span>Starter buses</span></div><div><strong>24/7</strong><span>Operations view</span></div><div><strong>GPS</strong><span>Device-ready</span></div></div></div><div class="brand-footer">Raja Nagar · Vadakangulam · Tamil Nadu</div></section><section class="login-panel"><div class="login-content"><div class="eyebrow">SECURE WORKSPACE</div><h2>Welcome back</h2><p class="muted">Sign in to continue to the transport portal.</p>{% with messages=get_flashed_messages(with_categories=true) %}{% if messages %}{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}{% endif %}{% endwith %}<form method="post" action="{{ url_for('login_post') }}" class="login-form"><label for="username">Username</label><input id="username" name="username" autocomplete="username" placeholder="Enter your username" required autofocus><label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required><button class="btn btn-primary btn-wide" type="submit">Sign in <span>→</span></button></form><div class="demo-access"><div class="demo-title"><span class="demo-dot"></span> Quick account selection</div><div class="role-shortcuts"><button type="button" onclick="quickLogin('admin','Admin@123')">Admin</button><button type="button" onclick="quickLogin('student','Student@123')">Student</button><button type="button" onclick="quickLogin('driver','Driver@123')">Driver</button></div><p>Choose a role to fill the demo sign-in fields, then press Sign in.</p><small>Demo credentials are for local testing only. Change passwords before deployment.</small></div><div class="login-help">Need access? Contact JOY University Transport Help <b>8919209636</b></div></div></section></div><script>function quickLogin(username,password){document.getElementById("username").value=username;document.getElementById("password").value=password;document.getElementById("password").focus()}</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#35105f">
+<title>JOY University · Secure sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}?v=joy-login-refresh-2">
+</head>
+<body class="login-page">
+<main class="login-shell login-shell-new">
+<section class="login-brand login-brand-new">
+<div class="brand-lockup"><img src="{{ url_for('static',filename='assets/joy-university-logo.jpg') }}" alt="JOY University logo"><div><b>JOY UNIVERSITY</b><span>SMART BUS TRACKING</span></div></div>
+<div class="login-brand-content">
+<div class="login-pill"><i></i> CAMPUS MOBILITY · CONNECTED</div>
+<h1>Move smarter.<br><em>Arrive with confidence.</em></h1>
+<p>One secure workspace for student journeys, driver operations and university transport teams.</p>
+<div class="login-feature-list">
+<div><span>01</span><b>Live bus visibility</b><small>Follow your assigned vehicle</small></div>
+<div><span>02</span><b>Connected operations</b><small>Trips, routes and attendance</small></div>
+<div><span>03</span><b>Campus support</b><small>Help when you need it</small></div>
+</div>
+</div>
+<div class="brand-footer">Raja Nagar · Vadakangulam · Tamil Nadu</div>
+<div class="login-orbit orbit-one"></div><div class="login-orbit orbit-two"></div>
+</section>
+<section class="login-panel login-panel-new">
+<div class="login-content login-content-new">
+<div class="login-mobile-brand"><img src="{{ url_for('static',filename='assets/joy-university-logo.jpg') }}" alt=""><span>JOY UNIVERSITY</span></div>
+<div class="eyebrow">YOUR TRANSPORT WORKSPACE</div>
+<h2>Welcome back</h2>
+<p class="login-subtitle">Sign in to continue to your secure portal.</p>
+{% with messages=get_flashed_messages(with_categories=true) %}{% if messages %}{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}{% endif %}{% endwith %}
+<form method="post" action="{{ url_for('login_post') }}" class="login-form login-form-new">
+<label for="username">Username</label><input id="username" name="username" autocomplete="username" placeholder="Enter your username" required autofocus>
+<label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
+<button class="btn btn-primary btn-wide" type="submit">Sign in securely <span>→</span></button>
+</form>
+<div class="login-security"><span>♢</span><div><b>Private & role-based access</b><small>Your portal only displays information permitted for your account.</small></div></div>
+<div class="login-help">Need access or account assistance?<br>JOY University Transport Help <a href="tel:8919209636">8919209636</a></div>
+</div>
+</section>
+</main>
+</body></html>
