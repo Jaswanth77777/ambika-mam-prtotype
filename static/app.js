@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id); const esc=s=>String(s??'').replace(/[&<
 const statusClass=s=>s==='LIVE GPS'?'live':s==='STALE'?'stale':s==='DEMO GPS'?'demo':'none';
 function toast(msg,type='success'){const box=document.createElement('div');box.className='toast '+(type==='error'?'error':'success');box.textContent=msg;$('toast-stack').appendChild(box);setTimeout(()=>box.remove(),4200)}
 function toggleSidebar(){$('sidebar').classList.toggle('open')}
-function navigate(view,record=true){const allowedViews=({ADMIN:['overview','tracking','buses','routes','students','alerts','reports','admin-students','admin-drivers','admin-buses','admin-routes','admin-stops','admin-trips','admin-attendance','admin-maintenance','admin-permissions','admin-settings'],DRIVER:['overview','tracking','routes','alerts'],STUDENT:['overview','tracking','routes']})[role]||[];if(!allowedViews.includes(view)){toast('This option is not available for your account.','error');return}if(record&&document.querySelector('.view.active')?.id!==`view-${view}`){viewHistory.push(view);if(viewHistory.length>30)viewHistory.shift()}document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));const target=$('view-'+view);if(!target){toast('This section is not available.','error');return}target.classList.add('active');document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.view===view));const names={overview:'Overview',tracking:'Live tracking',buses:'Bus fleet',routes:'Routes & stops',students:'Student transport',imports:'Excel import',alerts:'Alerts',reports:'Reports',settings:'Settings'};$('crumb').textContent=names[view]||view;$('sidebar').classList.remove('open');if(view==='tracking'){setTimeout(()=>{initTrackingMap();trackingMap&&trackingMap.invalidateSize();refreshBuses()},100)}if(view==='buses')renderBusTable();if(view==='routes')loadRoutes();if(view==='students')loadStudents();if(view==='alerts')loadAlerts();if(view==='overview')setTimeout(()=>overviewMap&&overviewMap.invalidateSize(),100)}
+function navigate(view,record=true){const allowedViews=({ADMIN:['overview','tracking','buses','routes','students','alerts','reports','admin-students','admin-drivers','admin-buses','admin-routes','admin-stops','admin-trips','admin-attendance','admin-maintenance','admin-permissions','admin-settings'],STUDENT:['student-dashboard','student-profile','student-bus','tracking','student-route','student-arrival','student-notifications','student-attendance','student-emergency','student-support','student-password'],DRIVER:['driver-dashboard','driver-profile','driver-bus','driver-trips','driver-start','driver-end','driver-gps','driver-route','driver-status','driver-attendance','driver-emergency','driver-notifications','driver-issue','driver-password']})[role]||[];if(!allowedViews.includes(view)){toast('This option is not available for your account.','error');return}if(record&&document.querySelector('.view.active')?.id!==`view-${view}`){viewHistory.push(view);if(viewHistory.length>30)viewHistory.shift()}document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));const target=$('view-'+view);if(!target){toast('This section is not available.','error');return}target.classList.add('active');document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.view===view));const names={overview:'Overview',tracking:'Live tracking',buses:'Bus fleet',routes:'Routes & stops',students:'Student transport',imports:'Excel import',alerts:'Alerts',reports:'Reports',settings:'Settings','student-dashboard':'Student Dashboard','driver-dashboard':'Driver Dashboard'};$('crumb').textContent=names[view]||view;$('sidebar').classList.remove('open');if(view==='tracking'){setTimeout(()=>{initTrackingMap();trackingMap&&trackingMap.invalidateSize();refreshBuses()},100)}if(view==='buses')renderBusTable();if(view==='routes')loadRoutes();if(view==='students')loadStudents();if(view==='alerts')loadAlerts();if(view==='overview')setTimeout(()=>overviewMap&&overviewMap.invalidateSize(),100);if(view.startsWith('student-'))loadStudentPortal();if(view.startsWith('driver-'))loadDriverPortal()}
 function goBack(){if(viewHistory.length>1){viewHistory.pop();const previous=viewHistory[viewHistory.length-1];navigate(previous,false)}else navigate('overview',false)}
 document.querySelectorAll('.nav-item').forEach(n=>n.addEventListener('click',()=>navigate(n.dataset.view)));
 document.addEventListener('keydown',e=>{if(e.altKey&&e.key==='ArrowLeft'){e.preventDefault();goBack()}});
@@ -60,62 +60,73 @@ function exportTracking(){csvDownload('joy-tracking-status.csv',buses.map(b=>({b
 function downloadTemplate(cat){window.location.href=`/templates/${cat}.csv`}
 function setTheme(dark){document.body.classList.toggle('dark-mode',dark);localStorage.setItem('joy-theme',dark?'dark':'light')}$('theme-toggle').addEventListener('click',()=>setTheme(!document.body.classList.contains('dark-mode')));setTheme(localStorage.getItem('joy-theme')==='dark');
 function setupRole(){
-  const permissions={
-    ADMIN:['overview','tracking','buses','routes','students','alerts','reports','admin-students','admin-drivers','admin-buses','admin-routes','admin-stops','admin-trips','admin-attendance','admin-maintenance','admin-permissions','admin-settings'],
-    DRIVER:['overview','tracking','routes','alerts'],
-    STUDENT:['overview','tracking','routes'],
-  };
-  const allowed=permissions[role]||permissions.STUDENT;
-  // Rebuild navigation visibility on every load so cached/stale hidden classes cannot
-  // leave the Admin Portal menu missing after an account switch.
-  document.querySelectorAll('.nav-item[data-view]').forEach(el=>{
-    const isAdminItem=el.classList.contains('admin-only');
-    const isPersonalItem=el.classList.contains('non-admin-only');
-    const visible=role==='ADMIN' ? isAdminItem : (isPersonalItem && allowed.includes(el.dataset.view));
-    el.classList.toggle('hidden',!visible);
-  });
-  document.querySelectorAll('.nav-section-label.admin-only').forEach(el=>el.classList.toggle('hidden',role!=='ADMIN'));
-  document.querySelectorAll('.nav-section-label.non-admin-only').forEach(el=>el.classList.toggle('hidden',role==='ADMIN'));
-  document.querySelectorAll('.admin-only:not(.nav-item):not(.nav-section-label)').forEach(el=>el.classList.toggle('hidden',role!=='ADMIN'));
-  document.querySelectorAll('.non-admin-only:not(.nav-item):not(.nav-section-label)').forEach(el=>el.classList.toggle('hidden',role==='ADMIN'));
-  const activeView=document.querySelector('.view.active')?.id.replace('view-','');
-  document.querySelectorAll('.nav-item[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===activeView&&!el.classList.contains('hidden')));
-  document.querySelectorAll('.view').forEach(v=>{const name=v.id.replace('view-','');if(!allowed.includes(name))v.classList.remove('active')});
-  if(!allowed.includes('overview'))navigate(allowed[0],false);
-  const labels={ADMIN:'Administrator workspace',DRIVER:'Driver workspace',STUDENT:'Student travel workspace'};
-  $('today-date').textContent=labels[role]||'Transport workspace';
-  const title=document.querySelector('#view-overview .page-heading h1');
-  const intro=document.querySelector('#view-overview .page-heading p');
-  const copy={
-    ADMIN:['Good day, '+(title?.textContent.replace(/^Good day, /,'')||'Admin'),'Manage the fleet, transport records and system settings.'],
-    DRIVER:['Driver dashboard','Share your GPS while driving and check your assigned bus status.'],
-    STUDENT:['Student travel','Check bus locations and browse route information.'],
-  }[role];
-  if(title&&copy)title.textContent=copy[0];if(intro&&copy)intro.textContent=copy[1];
-  // Metrics that expose fleet-wide operational totals are reserved for transport staff.
-  if(['STUDENT','DRIVER'].includes(role)){
-    $('metrics')?.classList.add('role-compact');
-    document.querySelectorAll('.bottom-grid .panel').forEach((p,i)=>{if(i===0)p.classList.add('hidden')});
-    document.querySelectorAll('.quick-actions .admin-only').forEach(el=>el.classList.add('hidden'));
-  }
-  if(role==='STUDENT'){
-    document.querySelector('.activity-panel')?.classList.add('hidden');
-    const q=document.querySelector('.quick-actions');if(q)q.innerHTML='<button onclick="navigate(\'tracking\')"><span class="quick-icon blue">⌖</span><span><b>Find my bus</b><small>Choose a bus and view its map status</small></span><i>→</i></button><button onclick="navigate(\'routes\')"><span class="quick-icon green">⌁</span><span><b>Browse routes</b><small>Review route names and stops</small></span><i>→</i></button>';
-  }
-  if(role==='DRIVER'){
-    const q=document.querySelector('.quick-actions');if(q)q.innerHTML='<button onclick="navigate(\'tracking\')"><span class="quick-icon blue">⌖</span><span><b>Check bus location</b><small>Review the selected bus on the map</small></span><i>→</i></button><button onclick="document.getElementById(\'gps-start\').click()"><span class="quick-icon green">◉</span><span><b>Start GPS sharing</b><small>Send your device location</small></span><i>→</i></button>';
-  }
-
-  if(role==='DRIVER'){
-    const h=document.querySelector('#view-overview .page-heading');const panel=document.createElement('div');panel.className='notice notice-blue driver-gps-card';
-    panel.innerHTML='<b>Driver GPS sharing</b><span>Share device location only while operating your assigned bus. Keep this page open; browser GPS requires permission and HTTPS or localhost.</span><div class="driver-gps-actions"><button class="btn btn-primary" id="gps-start">Start GPS sharing</button><button class="btn btn-secondary" id="gps-stop" disabled>Stop sharing</button></div>';
-    h.insertAdjacentElement('afterend',panel);$('gps-start').addEventListener('click',startDriverGPS);$('gps-stop').addEventListener('click',stopDriverGPS);
-  }
-  if(role==='STUDENT'){
-    const panel=document.createElement('div');panel.className='notice notice-blue student-readonly-note';panel.innerHTML='<b>Student view · read only</b><span>You can view bus GPS and route information. Fleet management, imports and other students’ records are not available in this account.</span>';
-    document.querySelector('#view-overview .page-heading')?.insertAdjacentElement('afterend',panel);
-  }
+ const views={
+  ADMIN:['overview','tracking','buses','routes','students','alerts','reports','admin-students','admin-drivers','admin-buses','admin-routes','admin-stops','admin-trips','admin-attendance','admin-maintenance','admin-permissions','admin-settings'],
+  STUDENT:['student-dashboard','student-profile','student-bus','tracking','student-route','student-arrival','student-notifications','student-attendance','student-emergency','student-support','student-password'],
+  DRIVER:['driver-dashboard','driver-profile','driver-bus','driver-trips','driver-start','driver-end','driver-gps','driver-route','driver-status','driver-attendance','driver-emergency','driver-notifications','driver-issue','driver-password']
+ };
+ const allowed=views[role]||views.STUDENT;
+ document.querySelectorAll('.nav-item[data-view]').forEach(el=>{
+  const admin=el.classList.contains('admin-only'),student=el.classList.contains('student-only'),driver=el.classList.contains('driver-only');
+  const visible=role==='ADMIN'?admin:role==='STUDENT'?student:driver;
+  el.classList.toggle('hidden',!visible);
+ });
+ document.querySelectorAll('.nav-section-label.admin-only,.admin-only:not(.nav-item):not(.nav-section-label)').forEach(el=>el.classList.toggle('hidden',role!=='ADMIN'));
+ document.querySelectorAll('.student-only:not(.nav-item)').forEach(el=>el.classList.toggle('hidden',role!=='STUDENT'));
+ document.querySelectorAll('.driver-only:not(.nav-item)').forEach(el=>el.classList.toggle('hidden',role!=='DRIVER'));
+ document.querySelectorAll('.nav-section-label.student-only').forEach(el=>el.classList.toggle('hidden',role!=='STUDENT'));
+ document.querySelectorAll('.nav-section-label.driver-only').forEach(el=>el.classList.toggle('hidden',role!=='DRIVER'));
+ document.querySelectorAll('.non-admin-only').forEach(el=>el.classList.add('hidden'));
+ document.querySelectorAll('.view').forEach(v=>{v.classList.remove('active');v.classList.toggle('hidden',!allowed.includes(v.id.replace('view-','')))});
+ const home=role==='ADMIN'?'overview':role==='STUDENT'?'student-dashboard':'driver-dashboard';
+ const target=$('view-'+home);if(target)target.classList.add('active');
+ document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.view===home&&!n.classList.contains('hidden')));
+ const labels={ADMIN:'Administrator workspace',STUDENT:'Student travel portal',DRIVER:'Driver operations portal'};
+ $('today-date').textContent=labels[role]||'Transport workspace';
+ const heading=document.querySelector('#view-overview .page-heading');
+ if(role!=='ADMIN'&&heading)heading.classList.add('hidden');
+ if(role!=='ADMIN')document.querySelectorAll('#view-overview .metric-grid,#view-overview .dashboard-grid,#view-overview .bottom-grid').forEach(x=>x.classList.add('hidden'));
+ if(role==='DRIVER'){
+  $('gps-start')?.addEventListener('click',startDriverGPS);
+  $('gps-stop')?.addEventListener('click',stopDriverGPS);
+ }
+ if(role==='STUDENT')loadStudentPortal();
+ if(role==='DRIVER')loadDriverPortal();
 }
+async function loadStudentPortal(){
+ try{const d=await getJSON('/api/student/me');window.studentData=d;const x=d.student||{},b=d.bus||{},r=d.route||{};
+ const busHtml=b.bus_no?'<b>'+esc(b.bus_no)+'</b><p>'+esc(b.registration||'')+' · '+esc(b.driver_name||'Driver not assigned')+'</p><p>GPS: '+esc(b.tracking_status||'NOT CONNECTED')+'</p>':'No bus assignment is linked to your student account yet.';
+ const routeHtml=r.name?'<b>'+esc(r.route_code)+' · '+esc(r.name)+'</b><p>'+esc(r.origin||'Start not set')+' → '+esc(r.destination||'Destination not set')+'</p><ol>'+((d.stops||[]).map(z=>'<li>'+esc(z.name)+'</li>').join(''))+'</ol>':'No route assigned.';
+ if($('student-bus-card'))$('student-bus-card').innerHTML=busHtml;if($('student-bus-detail'))$('student-bus-detail').innerHTML=busHtml;
+ if($('student-route-detail'))$('student-route-detail').innerHTML=routeHtml;
+ const profile='<dl class="portal-dl"><dt>Name</dt><dd>'+esc(x.name||d.user.full_name)+'</dd><dt>Register number</dt><dd>'+esc(x.register_no||d.user.username)+'</dd><dt>Department</dt><dd>'+esc(x.department||'—')+'</dd><dt>Academic year</dt><dd>'+esc(x.academic_year||'—')+'</dd><dt>Phone</dt><dd>'+esc(x.phone||'—')+'</dd></dl>';
+ if($('student-profile-card'))$('student-profile-card').innerHTML=profile;
+ if($('student-metrics'))$('student-metrics').innerHTML=[['Assigned bus',b.bus_no||'—'],['Route',r.route_code||'—'],['Attendance records',(d.attendance||[]).length]].map(a=>'<div class="metric-card"><div class="metric-top"><span>'+a[0]+'</span></div><div class="metric-value">'+esc(a[1])+'</div></div>').join('');
+ const eta='ETA is not available until verified route timings and current GPS data are configured.';
+ if($('student-arrival-card'))$('student-arrival-card').textContent=eta;if($('student-arrival-detail'))$('student-arrival-detail').textContent=eta;
+ if($('student-attendance-list'))$('student-attendance-list').innerHTML=(d.attendance||[]).length?'<table><thead><tr><th>DATE</th><th>BUS</th><th>STATUS</th></tr></thead><tbody>'+d.attendance.map(a=>'<tr><td>'+esc(a.boarding_time)+'</td><td>'+esc(a.bus_no||'—')+'</td><td>'+esc(a.status)+'</td></tr>').join('')+'</tbody></table>':'<div class="empty-state">No attendance records found.</div>';
+ await loadPortalNotifications('student-notification-list');
+ }catch(e){toast(e.message,'error')}
+}
+async function loadPortalNotifications(id){try{const d=await getJSON('/api/notifications');$(id).innerHTML=d.length?d.map(n=>'<article class="portal-notice"><b>'+esc(n.title)+'</b><p>'+esc(n.message)+'</p><small>'+esc(n.created_at)+'</small></article>').join(''):'<div class="empty-state">No notifications yet.</div>'}catch(e){$(id).textContent='Notifications unavailable.'}}
+async function loadDriverPortal(){
+ try{const d=await getJSON('/api/driver/me');window.driverData=d;const b=d.bus||{},t=d.trips||[];
+ const busHtml=b.bus_no?'<b>'+esc(b.bus_no)+'</b><p>'+esc(b.registration||'')+' · '+esc(b.route_name||'No route assigned')+'</p><p>'+esc(b.status||'')+' · GPS '+esc(b.tracking_status||'NOT CONNECTED')+'</p>':'No bus is assigned to this driver account.';
+ if($('driver-bus-card'))$('driver-bus-card').innerHTML=busHtml;if($('driver-bus-detail'))$('driver-bus-detail').innerHTML=busHtml;
+ const profile='<dl class="portal-dl"><dt>Name</dt><dd>'+esc(d.user.full_name)+'</dd><dt>Username</dt><dd>'+esc(d.user.username)+'</dd><dt>Assigned bus</dt><dd>'+esc(b.bus_no||'—')+'</dd></dl>';
+ if($('driver-profile-card'))$('driver-profile-card').innerHTML=profile;
+ const rows=t.map(x=>'<tr><td>'+esc(x.id)+'</td><td>'+esc(x.route_name||'—')+'</td><td>'+esc(x.planned_start||'—')+'</td><td>'+esc(x.status)+'</td><td>'+(x.status==='Scheduled'?'<button class="btn btn-primary" onclick="setDriverTrip('+x.id+',\'In progress\')">Start</button>':x.status==='In progress'?'<button class="btn btn-secondary" onclick="setDriverTrip('+x.id+',\'Completed\')">End</button>':'—')+'</td></tr>').join('');
+ const table=rows?'<table><thead><tr><th>TRIP</th><th>ROUTE</th><th>START</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty-state">No trips are assigned.</div>';
+ if($('driver-trip-list'))$('driver-trip-list').innerHTML=table;if($('driver-trip-summary'))$('driver-trip-summary').innerHTML=table;
+ if($('driver-start-panel'))$('driver-start-panel').innerHTML=table;if($('driver-end-panel'))$('driver-end-panel').innerHTML=table;if($('driver-status-panel'))$('driver-status-panel').innerHTML=table;
+ if($('driver-route-detail'))$('driver-route-detail').innerHTML=esc(b.route_name||'No route assigned. Ask the transport administrator to assign a route.');
+ if($('driver-metrics'))$('driver-metrics').innerHTML=[['Assigned bus',b.bus_no||'—'],['Trips',t.length],['Active trips',t.filter(x=>x.status==='In progress').length]].map(a=>'<div class="metric-card"><div class="metric-top"><span>'+a[0]+'</span></div><div class="metric-value">'+esc(a[1])+'</div></div>').join('');
+ await loadPortalNotifications('driver-notification-list');
+ }catch(e){toast(e.message,'error')}
+}
+async function setDriverTrip(id,status){try{const r=await fetch('/api/driver/trips/'+id,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({status})});const d=await r.json();if(!r.ok)throw new Error(d.error);toast('Trip status updated');loadDriverPortal()}catch(e){toast(e.message,'error')}}
+async function submitDriverIssue(e,kind){e.preventDefault();const fd=new FormData(e.target);try{const r=await fetch('/api/driver/issues',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({kind,category:fd.get('category')||kind,description:fd.get('description')})});const d=await r.json();if(!r.ok)throw new Error(d.error);toast('Report submitted to transport administration');e.target.reset()}catch(err){toast(err.message,'error')}}
+async function changeAccountPassword(e){e.preventDefault();const fd=new FormData(e.target);try{const r=await fetch('/api/account/password',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({current_password:fd.get('current_password'),new_password:fd.get('new_password')})});const d=await r.json();if(!r.ok)throw new Error(d.error);toast('Password updated successfully');e.target.reset()}catch(err){toast(err.message,'error')}}
 function startDriverGPS(){if(!navigator.geolocation){toast('This browser does not support GPS.','error');return}if(!window.isSecureContext&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){toast('Browser GPS requires HTTPS or localhost.','error');return}if(driverWatch!==null)return;driverWatch=navigator.geolocation.watchPosition(async pos=>{try{const c=pos.coords;const r=await fetch('/api/driver/location',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({latitude:c.latitude,longitude:c.longitude,speed:c.speed,heading:c.heading,accuracy:c.accuracy})});const d=await r.json();if(!r.ok)throw new Error(d.error);$('connection-label').textContent='GPS sharing';refreshBuses()}catch(e){toast(e.message,'error');stopDriverGPS()}},err=>{toast('GPS unavailable: '+err.message,'error');stopDriverGPS()},{enableHighAccuracy:true,maximumAge:5000,timeout:15000});$('gps-start').disabled=true;$('gps-stop').disabled=false;toast('GPS sharing started. Allow location permission when prompted.')}
 function stopDriverGPS(){if(driverWatch!==null)navigator.geolocation.clearWatch(driverWatch);driverWatch=null;if($('gps-start'))$('gps-start').disabled=false;if($('gps-stop'))$('gps-stop').disabled=true;toast('GPS sharing stopped.')}
 async function checkIntegration(){try{const d=await getJSON('/health');if(d.gps_ingestion==='configured'){$('gps-integration-text').textContent='Authenticated tracking token configured';$('gps-integration-status').textContent='Configured';$('gps-integration-status').className='status-chip success'}}catch(e){}}
