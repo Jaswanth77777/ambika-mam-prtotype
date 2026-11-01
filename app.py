@@ -357,6 +357,11 @@ def admin_records(resource):
 def admin_create_record(resource):
     if request.headers.get('X-CSRF-Token')!=session.get('csrf'): return jsonify({'error':'Session expired; reload the page'}),403
     d=request.get_json(silent=True) or {}
+    if resource=='settings':
+        key=str(d.get('key','')).strip();value=str(d.get('value',''))
+        if not key:return jsonify({'error':'Setting key is required'}),400
+        with db_conn() as con:con.execute('INSERT INTO system_settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at',(key,value,now_iso()))
+        audit('setting_saved',key);return jsonify({'ok':True})
     if resource=='drivers':
         username=str(d.get('username','')).strip().lower(); name=str(d.get('full_name','')).strip(); password=str(d.get('password',''))
         if not username or not name or len(password)<8:return jsonify({'error':'Username, full name and password (8+ chars) are required'}),400
