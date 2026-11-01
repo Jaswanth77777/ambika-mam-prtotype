@@ -34,7 +34,7 @@ class PortalSmokeTests(unittest.TestCase):
         self.assertEqual(response.get_json()["status"], "ok")
 
     def test_dashboard_requires_login(self):
-        response = self.client.get("/")
+        response = self.client.get("/dashboard")
         self.assertIn(response.status_code, (301, 302))
         self.assertIn("/login", response.headers["Location"])
 

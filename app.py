@@ -88,8 +88,6 @@ def init_db():
                     ('Vadakkankulam Post Office',8.2577778,77.6064167,'Public map reference - transport office verification required'))
         con.execute('INSERT OR IGNORE INTO stops(route_id,name,sequence,lat,lng,coord_status) VALUES(?,?,?,?,?,?)',
                     (1,'Vadakkankulam Town Centre',2,8.267,77.600,'Published town-centre reference - transport office verification required'))
-        for rid, stop_name in [(1,'Vadakangulam Campus'),(2,'Tirunelveli Bus Stand'),(3,'Kanyakumari'),(4,'Chettikulam'),(5,'Kaliyakkavilai'),(6,'Rajakkamangalam'),(7,'Kalakkad'),(8,'Thisayanvilai'),(9,'Thalayuthu'),(10,'Ambasamudram')]:
-            con.execute('INSERT OR IGNORE INTO stops(route_id,name,sequence,coord_status) VALUES(?,?,?,?)', (rid, stop_name, 1, 'Approximate - verify'))
 
 init_db()
 with db_conn() as con:
@@ -149,12 +147,12 @@ def login_alias():
 
 @app.post('/login')
 def login_post():
-    email = request.form.get('email', '').strip().lower()
+    identifier = (request.form.get('email') or request.form.get('username') or '').strip().lower()
     password = request.form.get('password', '')
     with db_conn() as con:
         user = con.execute(
-            "SELECT id, password_hash, role FROM users WHERE lower(email)=? AND role IN ('ADMIN','DRIVER','STUDENT') AND active=1",
-            (email,)
+            "SELECT id, password_hash, role FROM users WHERE (lower(email)=? OR lower(username)=?) AND role IN ('ADMIN','DRIVER','STUDENT') AND active=1",
+            (identifier, identifier)
         ).fetchone()
     if not user or not check_password_hash(user['password_hash'], password):
         flash('Email or password is incorrect. Please try again.', 'error')
@@ -197,6 +195,7 @@ def api_buses():
     user=current_user();scope='';params=()
     # Admins and students can view the complete fleet map; drivers only see their assigned vehicle.
     if user['role']=='DRIVER':scope=' WHERE b.driver_id=?';params=(user['id'],)
+    elif user['role']=='STUDENT':scope=' WHERE b.id=(SELECT bus_id FROM students WHERE lower(register_no)=lower(?) LIMIT 1)';params=(user['username'],)
     with db_conn() as con:
         rows=con.execute('''SELECT b.*,r.name route_name,u.full_name driver_name,l.lat,l.lng,l.speed,l.heading,l.accuracy,l.recorded_at,l.source FROM buses b LEFT JOIN routes r ON r.id=b.route_id LEFT JOIN users u ON u.id=b.driver_id LEFT JOIN locations l ON l.id=(SELECT id FROM locations WHERE bus_id=b.id ORDER BY recorded_at DESC,id DESC LIMIT 1)''' + scope + ' ORDER BY b.bus_no',params).fetchall()
     result=[]; now=datetime.now(timezone.utc)
@@ -593,7 +592,7 @@ def student_me():
         if not st.get('route_id') and st.get('bus_id'):
             linked=con.execute('SELECT route_id FROM buses WHERE id=?',(st['bus_id'],)).fetchone()
             if linked:st['route_id']=linked['route_id']
-        bus=con.execute('SELECT b.id,b.bus_no,b.registration,b.status,u.full_name driver_name,r.name route_name,l.lat,l.lng,l.recorded_at,l.source FROM buses b LEFT JOIN users u ON u.id=b.driver_id LEFT JOIN routes r ON r.id=b.route_id LEFT JOIN locations l ON l.id=(SELECT id FROM locations WHERE bus_id=b.id ORDER BY id DESC LIMIT 1) WHERE b.id=?',(st.get('bus_id'),)).fetchone() if st.get('bus_id') else None
+        bus=con.execute('SELECT b.id,b.bus_no,b.registration,b.status,u.full_name driver_name,r.name route_name,l.lat,l.lng,l.speed,l.heading,l.accuracy,l.recorded_at,l.source FROM buses b LEFT JOIN users u ON u.id=b.driver_id LEFT JOIN routes r ON r.id=b.route_id LEFT JOIN locations l ON l.id=(SELECT id FROM locations WHERE bus_id=b.id ORDER BY id DESC LIMIT 1) WHERE b.id=?',(st.get('bus_id'),)).fetchone() if st.get('bus_id') else None
         if bus:
             bus_data=dict(bus);bus_data['tracking_status']='NOT CONNECTED'
             if bus_data.get('recorded_at'):
@@ -602,7 +601,7 @@ def student_me():
                 except Exception:pass
         else:bus_data=None
         route=con.execute('SELECT * FROM routes WHERE id=?',(st.get('route_id'),)).fetchone() if st.get('route_id') else None
-        stops=con.execute('SELECT name,sequence,eta FROM stops WHERE route_id=? ORDER BY sequence',(st.get('route_id'),)).fetchall() if st.get('route_id') else []
+        stops=con.execute('SELECT name,sequence,eta,lat,lng,coord_status FROM stops WHERE route_id=? ORDER BY sequence',(st.get('route_id'),)).fetchall() if st.get('route_id') else []
         attendance=con.execute('SELECT a.boarding_time,a.status,b.bus_no FROM attendance a LEFT JOIN buses b ON b.id=a.bus_id WHERE a.student_id=? ORDER BY a.id DESC LIMIT 100',(st['id'],)).fetchall()
     return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'student':st,'bus':bus_data,'route':dict(route) if route else None,'stops':[dict(x) for x in stops],'attendance':[dict(x) for x in attendance]})
 

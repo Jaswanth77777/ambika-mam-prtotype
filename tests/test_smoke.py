@@ -1,25 +1,18 @@
 """Smoke tests. Run with: python -m unittest discover -s tests"""
-import os, tempfile, unittest
+import unittest
 
 class AppSmokeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.temp_db = tempfile.mktemp(suffix='.db')
-        os.environ['JOY_DB_PATH'] = cls.temp_db
         import app as app_module
         cls.module = app_module
         cls.client = app_module.app.test_client()
-        response = cls.client.post('/login', data={'username':'admin','password':'Admin@123'}, follow_redirects=True)
+        response = cls.client.post('/login', data={'email':'admin@joyuniversity.edu','password':'Admin@123'}, follow_redirects=True)
         if response.status_code != 200:
             raise RuntimeError('Admin login smoke test failed')
 
-    @classmethod
-    def tearDownClass(cls):
-        try: os.remove(cls.temp_db)
-        except OSError: pass
-
     def test_dashboard_and_bus_api(self):
-        self.assertEqual(self.client.get('/').status_code, 200)
+        self.assertEqual(self.client.get('/dashboard').status_code, 200)
         overview = self.client.get('/api/overview')
         self.assertEqual(overview.status_code, 200)
         self.assertEqual(overview.json['counts']['buses'], 10)

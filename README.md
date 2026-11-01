@@ -27,11 +27,11 @@ The Reports screen provides CSV exports and database summary counts. The Alerts 
 
 ## Important data and GPS behavior
 - The ten starter buses and route names are setup records, not proof of an official route assignment.
-- No fake coordinates are seeded. If a bus has no GPS data, the UI says `NOT CONNECTED`.
+- No fake bus GPS coordinates are seeded. Buses without current GPS display `NOT CONNECTED`; the map may show a separately labelled road preview when a route has mapped stops.
 - The map uses Leaflet and OpenStreetMap tiles and requires internet access. If tiles do not load, check internet/firewall access. Attribution is displayed on the map.
 - External tracking devices can POST JSON to `/api/tracking/location` with header `X-Tracking-Token`. Set `TRACKING_API_TOKEN` in the server environment first. Required JSON keys: `bus_id`, `latitude`, `longitude`; optional `speed`, `heading`, `accuracy`, `timestamp` (ISO-8601), `device_id`.
 - A logged-in driver assigned to a bus can use the browser's GPS share controls. Browser geolocation requires localhost or HTTPS, permission, and an assigned bus. Never present stale locations as live.
-- Route coordinates, official stop coordinates, exact route geometry, traffic-based ETA, SMTP email, web push, and production 3D maps are not claimed to be implemented. Verify routes/stops with the transport office before real operations.
+- Official service-stop coordinates and route geometry must be entered and verified by the transport office. Traffic-based ETA, SMTP email, web push, and production 3D maps are not claimed to be implemented. Verify routes/stops with the transport office before real operations.
 
 ## Imports
 The import page supports category CSV and `.xlsx` files, up to 8 MB. Download the provided templates. Unique bus numbers, route IDs, and student register numbers prevent duplicate inserts; existing records are updated. Failed rows are reported in the response. The `.xlsx` importer looks for a sheet named `Buses`, `Routes`, or `Students` for the selected category; otherwise it uses the first sheet.
@@ -83,7 +83,7 @@ The dashboard now shows different navigation and quick actions by account role:
 - **Admin:** fleet, routes, student transport, imports, alerts, reports and settings.
 - **Driver:** overview, tracking, routes, alerts and browser GPS sharing for the assigned bus.
 - **Student:** overview, bus tracking and route information only (read-only; no fleet management or other students' records).
-Selecting a bus without GPS shows a clearly labelled **DEMO PREVIEW** that moves along an illustrative campus loop. The loop is not an official road route and must never be treated as a real bus location. Real tracking requires device GPS or the driver's permitted location sharing. Map tiles require an internet connection.
+Selecting a bus without live GPS shows a clearly labelled **ROAD ROUTE PREVIEW** only when at least one mapped destination stop has been configured for that route. The preview starts from the campus reference point and follows a road path returned by the routing service; it is not a live vehicle location or a verified official service route. Admins can add mapped stops under Stop Management by entering latitude and longitude. Real tracking requires device GPS or the driver's permitted location sharing. Map tiles and road previews require internet access.
 
 
 ## Health check and automated tests
