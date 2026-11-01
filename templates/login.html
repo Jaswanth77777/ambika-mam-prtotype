@@ -33,6 +33,7 @@
 <p class="login-subtitle">Sign in to continue to your secure portal.</p>
 {% with messages=get_flashed_messages(with_categories=true) %}{% if messages %}{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}{% endif %}{% endwith %}
 <form method="post" action="{{ url_for('login_post') }}" class="login-form login-form-new">
+<input type="hidden" name="csrf" value="{{ session.get('csrf', '') }}">
 <label for="username">Email / Username</label><input id="username" type="text" name="username" autocomplete="username" inputmode="email" placeholder="Enter your email or username" required autofocus>
 <label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
 <button class="btn btn-primary btn-wide" type="submit">Sign in securely <span>→</span></button>

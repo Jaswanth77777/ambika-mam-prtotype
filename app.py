@@ -1,5 +1,5 @@
 import os, sqlite3, secrets, csv, io, json, math, time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -15,7 +15,9 @@ app.secret_key = SECRET
 app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_SECURE', '0') == '1'
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_SECURE', '1' if os.environ.get('VERCEL') else '0') == '1'
+app.permanent_session_lifetime = timedelta(minutes=30)
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 CAMPUS = {'lat': 8.2436, 'lng': 77.6058, 'name': 'JOY University', 'address': 'Raja Nagar, Vadakangulam, Tirunelveli District, Tamil Nadu 627116'}
 
 
@@ -41,6 +43,9 @@ def init_db():
         CREATE TABLE IF NOT EXISTS alerts(id INTEGER PRIMARY KEY, category TEXT NOT NULL, message TEXT NOT NULL, bus_id INTEGER, status TEXT NOT NULL DEFAULT 'Open', created_at TEXT NOT NULL, acknowledged_by INTEGER, FOREIGN KEY(bus_id) REFERENCES buses(id), FOREIGN KEY(acknowledged_by) REFERENCES users(id));
         CREATE TABLE IF NOT EXISTS import_jobs(id INTEGER PRIMARY KEY, filename TEXT NOT NULL, category TEXT NOT NULL, imported INTEGER DEFAULT 0, skipped INTEGER DEFAULT 0, failed INTEGER DEFAULT 0, created_at TEXT NOT NULL, summary TEXT DEFAULT '');
         CREATE TABLE IF NOT EXISTS audit_logs(id INTEGER PRIMARY KEY, user_id INTEGER, action TEXT NOT NULL, details TEXT DEFAULT '', created_at TEXT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id));
+        CREATE TABLE IF NOT EXISTS login_attempts(id INTEGER PRIMARY KEY, username TEXT NOT NULL, ip_address TEXT NOT NULL, attempted_at REAL NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_time ON login_attempts(ip_address, attempted_at);
+        CREATE INDEX IF NOT EXISTS idx_login_attempts_user_time ON login_attempts(username, ip_address, attempted_at);
         ''')
         seed_users = [('admin',os.environ.get('INITIAL_ADMIN_PASSWORD','Admin@123'),'ADMIN','JOY Transport Admin'),('student','Student@123','STUDENT','Demo Student'),('driver','Driver@123','DRIVER','Demo Driver')]
         con.execute("DELETE FROM users WHERE role IN ('TRANSPORT_MANAGER','SECURITY')")
@@ -119,20 +124,49 @@ def healthz():
 @app.get('/login')
 def login():
     if current_user(): return redirect(url_for('home'))
+    if not session.get('csrf'): session['csrf'] = secrets.token_urlsafe(32)
     return render_template('login.html')
 
 @app.post('/login')
 def login_post():
-    username=request.form.get('username','').strip().lower(); password=request.form.get('password','')
-    with db_conn() as con: user=con.execute('SELECT * FROM users WHERE username=? AND active=1',(username,)).fetchone()
-    if not user or user['role'] not in ('ADMIN','STUDENT','DRIVER') or not check_password_hash(user['password_hash'],password):
-        flash('Username or password is incorrect.','error'); return redirect(url_for('login'))
-    session.clear(); session['uid']=user['id']; session['csrf']=secrets.token_urlsafe(24)
-    audit('login', user['role']); return redirect(url_for('home'))
+    token = request.form.get('csrf', '')
+    if not token or not secrets.compare_digest(token, session.get('csrf', '')):
+        return jsonify({'error': 'Your sign-in page expired. Refresh and try again.'}), 400
+    username = request.form.get('username', '').strip().lower()[:120]
+    password = request.form.get('password', '')
+    ip_address = (request.remote_addr or 'unknown')[:64]
+    now = time.time()
+    with db_conn() as con:
+        con.execute('DELETE FROM login_attempts WHERE attempted_at < ?', (now - 86400,))
+        recent_ip = con.execute('SELECT COUNT(*) FROM login_attempts WHERE ip_address=? AND attempted_at>?', (ip_address, now - 900)).fetchone()[0]
+        recent_pair = con.execute('SELECT COUNT(*) FROM login_attempts WHERE username=? AND ip_address=? AND attempted_at>?', (username, ip_address, now - 900)).fetchone()[0]
+        if recent_ip >= 20 or recent_pair >= 8:
+            flash('Too many sign-in attempts. Please wait 15 minutes and try again.', 'error')
+            return redirect(url_for('login'))
+        user = con.execute('SELECT * FROM users WHERE username=? AND active=1', (username,)).fetchone()
+        valid = bool(user and user['role'] in ('ADMIN', 'STUDENT', 'DRIVER') and check_password_hash(user['password_hash'], password))
+        if not valid:
+            con.execute('INSERT INTO login_attempts(username,ip_address,attempted_at) VALUES(?,?,?)', (username, ip_address, now))
+        else:
+            con.execute('DELETE FROM login_attempts WHERE username=? AND ip_address=?', (username, ip_address))
+    if not valid:
+        flash('Username or password is incorrect.', 'error')
+        return redirect(url_for('login'))
+    session.clear()
+    session.permanent = True
+    session['uid'] = user['id']
+    session['csrf'] = secrets.token_urlsafe(32)
+    audit('login', user['role'])
+    return redirect(url_for('home'))
 
 @app.post('/logout')
 def logout():
-    audit('logout'); session.clear(); return redirect(url_for('login'))
+    token = request.form.get('csrf', '')
+    if not token or not secrets.compare_digest(token, session.get('csrf', '')):
+        return jsonify({'error': 'Session expired. Refresh the page and try again.'}), 400
+    audit('logout')
+    session.clear()
+    return redirect(url_for('login'))
 
 @app.get('/')
 @login_required

@@ -19,9 +19,12 @@ class PortalSmokeTests(unittest.TestCase):
         self.client = portal.app.test_client()
 
     def login(self, username, password):
+        self.client.get("/login")
+        with self.client.session_transaction() as session:
+            csrf = session.get("csrf", "")
         return self.client.post(
             "/login",
-            data={"username": username, "password": password},
+            data={"username": username, "password": password, "csrf": csrf},
             follow_redirects=False,
         )
 
