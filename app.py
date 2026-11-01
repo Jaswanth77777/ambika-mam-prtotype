@@ -528,6 +528,25 @@ def driver_me():
         trips=con.execute('SELECT t.id,t.planned_start,t.planned_end,t.status,t.route_id,r.name route_name,b.bus_no FROM trips t LEFT JOIN routes r ON r.id=t.route_id LEFT JOIN buses b ON b.id=t.bus_id WHERE t.driver_id=? ORDER BY t.id DESC LIMIT 100',(user['id'],)).fetchall()
     return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'bus':dict(bus) if bus else None,'trips':[dict(x) for x in trips]})
 
+@app.post('/api/driver/trips/<int:trip_id>')
+@roles_required('DRIVER')
+def driver_update_trip(trip_id):
+    if request.headers.get('X-CSRF-Token')!=session.get('csrf'):return jsonify({'error':'Session expired; reload the page'}),403
+    status=str((request.get_json(silent=True) or {}).get('status',''))
+    if status not in ('In progress','Completed'):return jsonify({'error':'Unsupported trip status'}),400
+    user=current_user()
+    with db_conn() as con:
+        trip=con.execute('SELECT id,status FROM trips WHERE id=? AND driver_id=?',(trip_id,user['id'])).fetchone()
+        if not trip:return jsonify({'error':'Trip is not assigned to this driver'}),404
+        if status=='In progress':
+            if trip['status']!='Scheduled':return jsonify({'error':'Only scheduled trips can be started'}),409
+            con.execute("UPDATE trips SET status='In progress',actual_start=? WHERE id=?",(now_iso(),trip_id))
+        else:
+            if trip['status']!='In progress':return jsonify({'error':'Only an active trip can be completed'}),409
+            con.execute("UPDATE trips SET status='Completed',actual_end=? WHERE id=?",(now_iso(),trip_id))
+    audit('driver_trip_'+status.lower().replace(' ','_'),str(trip_id))
+    return jsonify({'ok':True,'status':status})
+
 @app.get('/api/notifications')
 @login_required
 def user_notifications():
