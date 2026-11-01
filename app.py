@@ -228,9 +228,12 @@ def api_students():
 @app.get('/api/routes')
 @login_required
 def api_routes():
+    user=current_user();where='';params=()
+    if user['role']=='DRIVER':where=' WHERE r.id=(SELECT route_id FROM buses WHERE driver_id=? LIMIT 1)';params=(user['id'],)
+    elif user['role']=='STUDENT':where=' WHERE r.id=(SELECT route_id FROM students WHERE lower(register_no)=lower(?) LIMIT 1)';params=(user['username'],)
     with db_conn() as con:
-        routes=con.execute('SELECT r.*,COUNT(DISTINCT b.id) bus_count,COUNT(DISTINCT s.id) stop_count FROM routes r LEFT JOIN buses b ON b.route_id=r.id LEFT JOIN stops s ON s.route_id=r.id GROUP BY r.id ORDER BY r.route_code').fetchall()
-        stops=con.execute('SELECT s.*,r.route_code FROM stops s JOIN routes r ON r.id=s.route_id ORDER BY r.route_code,s.sequence').fetchall()
+        routes=con.execute('SELECT r.*,COUNT(DISTINCT b.id) bus_count,COUNT(DISTINCT s.id) stop_count FROM routes r LEFT JOIN buses b ON b.route_id=r.id LEFT JOIN stops s ON s.route_id=r.id' + where + ' GROUP BY r.id ORDER BY r.route_code',params).fetchall()
+        stops=con.execute('SELECT s.*,r.route_code FROM stops s JOIN routes r ON r.id=s.route_id' + where + ' ORDER BY r.route_code,s.sequence',params).fetchall()
     return jsonify({'routes':[dict(x) for x in routes],'stops':[dict(x) for x in stops]})
 
 @app.post('/api/buses')
