@@ -80,14 +80,28 @@ def init_db():
             con.execute('INSERT INTO trips(bus_id,route_id,driver_id,planned_start,status) VALUES(?,?,?,?,?)',(1,1,driver_id,now_iso(),'Scheduled'))
         # Coordinates intentionally absent for live GPS. These public reference points
         # support a clearly labelled road-route preview only, never live bus location.
-        for rid, stop_name in [(1,'Vadakangulam Campus'),(2,'Tirunelveli Bus Stand'),(3,'Kanyakumari'),(4,'Chettikulam'),(5,'Kaliyakkavilai'),(6,'Rajakkamangalam'),(7,'Kalakkad'),(8,'Thisayanvilai'),(9,'Thalayuthu'),(10,'Ambasamudram')]:
-            con.execute('INSERT OR IGNORE INTO stops(route_id,name,sequence,coord_status) VALUES(?,?,?,?)', (rid, stop_name, 1, 'Approximate - verify'))
-        # Public reference coordinates for the R01 local road-preview demonstration.
-        # The transport office must confirm these as actual service stops before operation.
-        con.execute('UPDATE stops SET name=?,lat=?,lng=?,coord_status=? WHERE route_id=1 AND sequence=1',
-                    ('Vadakkankulam Post Office',8.2577778,77.6064167,'Public map reference - transport office verification required'))
-        con.execute('INSERT OR IGNORE INTO stops(route_id,name,sequence,lat,lng,coord_status) VALUES(?,?,?,?,?,?)',
-                    (1,'Vadakkankulam Town Centre',2,8.267,77.600,'Published town-centre reference - transport office verification required'))
+        # Public geographic reference points enable route previews for all ten starter routes.
+        # They are NOT official JOY bus stops and never represent live vehicle GPS.
+        route_references = [
+            (1, 'Vencode public map reference', 8.25999, 77.19384),
+            (2, 'Pettai Municipality Bus Stop reference', 8.72158, 77.65730),
+            (3, 'Kanyakumari town reference', 8.07930, 77.54990),
+            (4, 'Chettikulam village reference', 8.16022, 77.61636),
+            (5, 'Kaliyakkavilai town reference', 8.32278, 77.15389),
+            (6, 'Rajakkamangalam locality reference', 8.13082, 77.36991),
+            (7, 'Kalakkad town reference', 8.51194, 77.55806),
+            (8, 'Thisayanvilai town reference', 8.33557, 77.86682),
+            (9, 'Thalaiyuthu town reference', 8.78800, 77.72426),
+            (10, 'Ambasamudram town reference', 8.70000, 77.46670)
+        ]
+        for rid, stop_name, lat, lng in route_references:
+            accuracy = 'Public map reference - NOT a verified JOY service stop'
+            con.execute('INSERT OR IGNORE INTO stops(route_id,name,sequence,coord_status) VALUES(?,?,1,?)', (rid, stop_name, accuracy))
+            existing = con.execute('SELECT id,lat,coord_status FROM stops WHERE route_id=? AND sequence=1', (rid,)).fetchone()
+            if existing and (existing['lat'] is None or existing['coord_status'] in ('Approximate - verify', 'Public map reference - transport office verification required')):
+                con.execute('UPDATE stops SET name=?,lat=?,lng=?,coord_status=? WHERE id=?', (stop_name, lat, lng, accuracy, existing['id']))
+        # Remove only the exact second preview placeholder created by an earlier build.
+        con.execute("DELETE FROM stops WHERE route_id=1 AND sequence=2 AND name='Vadakkankulam Town Centre' AND coord_status='Published town-centre reference - transport office verification required'")
 
 init_db()
 with db_conn() as con:
