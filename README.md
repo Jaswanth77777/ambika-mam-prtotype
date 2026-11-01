@@ -12,12 +12,10 @@ Requires Python 3 and internet access for first-run package installation and map
 
 ## Development demo logins
 - Admin: `admin` / `Admin@123`
-- Transport manager: `manager` / `Manager@123`
-- Security: `security` / `Security@123`
 - Driver: `driver` / `Driver@123`
 - Student: `student` / `Student@123`
 
-These are development-only accounts. Change/remove them before any real deployment. Student and driver demo accounts are included because the requested workflow asked for all role options; the main management interface is admin-oriented.
+These are development-only accounts. Change/remove them before any real deployment. Only three roles are supported: **Admin, Student and Driver**. Transport Manager and Security accounts are not supported.
 
 ## Important data and GPS behavior
 - The ten starter buses and route names are setup records, not proof of an official route assignment.
@@ -64,9 +62,8 @@ This starter is not production-certified. Before deployment: use HTTPS; set a pe
 ## Role-specific navigation and map preview update
 
 The dashboard now shows different navigation and quick actions by account role:
-- **Admin / Transport Manager:** fleet, routes, student transport, imports, alerts, reports and settings.
+- **Admin:** fleet, routes, student transport, imports, alerts, reports and settings.
 - **Driver:** overview, tracking, routes, alerts and browser GPS sharing for the assigned bus.
 - **Student:** overview, bus tracking and route information only (read-only; no fleet management or other students' records).
-- **Security:** overview, fleet monitoring, routes and alerts.
-
+- 
 Selecting a bus without GPS shows a clearly labelled **DEMO PREVIEW** that moves along an illustrative campus loop. The loop is not an official road route and must never be treated as a real bus location. Real tracking requires device GPS or the driver's permitted location sharing. Map tiles require an internet connection.
