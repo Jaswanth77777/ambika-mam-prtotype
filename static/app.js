@@ -67,7 +67,7 @@ function setupRole(){
   };
   const allowed=permissions[role]||permissions.STUDENT;
   document.querySelectorAll('.nav-item[data-view]').forEach(el=>{if(!allowed.includes(el.dataset.view))el.classList.add('hidden')});
-  document.querySelectorAll('.admin-only').forEach(el=>{if(role!=='ADMIN')el.classList.add('hidden')});
+  document.querySelectorAll('.admin-only').forEach(el=>{if(role!=='ADMIN')el.classList.add('hidden')});\n   document.querySelectorAll('.non-admin-only').forEach(el=>{if(role==='ADMIN')el.classList.add('hidden')});
   document.querySelectorAll('.view').forEach(v=>{const name=v.id.replace('view-','');if(!allowed.includes(name))v.classList.remove('active')});
   if(!allowed.includes('overview'))navigate(allowed[0],false);
   const labels={ADMIN:'Administrator workspace',DRIVER:'Driver workspace',STUDENT:'Student travel workspace'};
