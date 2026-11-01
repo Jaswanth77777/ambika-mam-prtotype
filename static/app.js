@@ -99,7 +99,7 @@ async function selectBus(id,focus=false){
  const hasLiveGPS=bus.tracking_status==='LIVE GPS'&&bus.lat!==null&&bus.lat!==undefined&&bus.lng!==null&&bus.lng!==undefined&&Number.isFinite(Number(bus.lat))&&Number.isFinite(Number(bus.lng));
  if(hasLiveGPS){
   upsertMarkers('tracking',trackingMap);
-  if(focus&&trackingMap){const point=[Number(bus.lat),Number(bus.lng)];trackingMap.setView(point,Math.max(trackingMap.getZoom(),16));const marker=markers.tracking[bus.id];if(marker)marker.openPopup();showHistory(selectedBus)}
+  if(focus&&trackingMap){const point=[Number(bus.lat),Number(bus.lng)];trackingMap.setView(point,Math.max(trackingMap.getZoom(),16));const marker=markers.tracking[bus.id];if(marker)marker.openPopup()}
   $('map-selected-label').textContent=bus.bus_no+' · LIVE GPS';
  }else{
   $('map-selected-label').textContent=bus.bus_no+' · building road preview…';
