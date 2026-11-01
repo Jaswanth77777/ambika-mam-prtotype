@@ -203,3 +203,14 @@ table td{font-size:11px;color:#554b5d}
 .dark-mode .btn-secondary,.dark-mode input,.dark-mode select,.dark-mode textarea{background:#292130!important;color:#eee5f4!important;border-color:#463750!important}
 @media(max-width:900px){.content-area{padding:22px 18px 32px}.topbar{padding:0 18px}}
 @media(max-width:760px){.content-area{padding:18px 13px 28px}.topbar{height:65px;padding:0 13px}.page-heading{align-items:flex-start;gap:14px}.page-heading h1{font-size:25px}.panel{padding:15px}.nav-list{padding-left:10px;padding-right:10px}.nav-item{min-height:44px}}
+
+
+/* Login-only finishing touches: keep the existing royal purple, white and silver palette. */
+.login-content-new{min-height:540px;display:flex;flex-direction:column;justify-content:center}
+.login-form-new{margin-top:auto;padding-top:22px}
+.login-form-new label{color:#4b315f}
+.login-form-new input{border-color:#d5c9df;background:#fff;color:#261533}
+.login-form-new input::placeholder{color:#a59aaa}
+.login-form-new input:focus{border-color:#6d35a5;box-shadow:0 0 0 3px rgba(109,53,165,.12);outline:0}
+.login-form-new .btn{background:linear-gradient(110deg,#6d35a5,#4b176f);border-color:#6d35a5}
+@media(max-width:760px){.login-content-new{min-height:0}.login-form-new{margin-top:0;padding-top:0}}

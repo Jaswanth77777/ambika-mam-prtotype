@@ -6,7 +6,7 @@
 <title>JOY University · Secure sign in</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}?v=joy-workspace-refresh-3">
+<link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}?v=joy-login-email-4">
 </head>
 <body class="login-page">
 <main class="login-shell login-shell-new">
@@ -33,7 +33,7 @@
 <p class="login-subtitle">Sign in to continue to your secure portal.</p>
 {% with messages=get_flashed_messages(with_categories=true) %}{% if messages %}{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}{% endif %}{% endwith %}
 <form method="post" action="{{ url_for('login_post') }}" class="login-form login-form-new">
-<label for="username">Username</label><input id="username" name="username" autocomplete="username" placeholder="Enter your username" required autofocus>
+<label for="username">Email / Username</label><input id="username" type="text" name="username" autocomplete="username" inputmode="email" placeholder="Enter your email or username" required autofocus>
 <label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
 <button class="btn btn-primary btn-wide" type="submit">Sign in securely <span>→</span></button>
 </form>
