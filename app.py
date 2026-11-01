@@ -138,7 +138,7 @@ def home():
     return render_template('index.html', user=dict(u), csrf=session.get('csrf',''), campus=CAMPUS)
 
 @app.get('/api/overview')
-@login_required
+@roles_required('ADMIN')
 def overview():
     with db_conn() as con:
         counts={k:con.execute(q).fetchone()[0] for k,q in {
@@ -271,7 +271,7 @@ def ack_alert(alert_id):
     audit('alert_acknowledged',str(alert_id)); return jsonify({'ok':True})
 
 @app.get('/api/alerts')
-@login_required
+@roles_required('ADMIN')
 def get_alerts():
     with db_conn() as con: rows=con.execute('SELECT a.*,b.bus_no FROM alerts a LEFT JOIN buses b ON b.id=a.bus_id ORDER BY CASE status WHEN "Open" THEN 0 ELSE 1 END,created_at DESC LIMIT 200').fetchall()
     return jsonify([dict(x) for x in rows])
