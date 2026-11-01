@@ -60,3 +60,18 @@ async function loadAdminResource(view){
 if(role==='ADMIN'){
  document.querySelectorAll('.nav-item[data-view^="admin-"]').forEach(n=>n.addEventListener('click',()=>navigate(n.dataset.view)));
 }
+
+async function loadAdminAnnouncements(){
+ if(role!=='ADMIN')return;
+ let panel=document.getElementById('admin-announcements-panel');
+ if(!panel){panel=document.createElement('section');panel.id='admin-announcements-panel';panel.className='panel';const target=document.querySelector('#view-alerts .page-heading');if(target)target.insertAdjacentElement('afterend',panel);}
+ if(!panel)return;
+ try{const rows=await adminGet('/api/admin/notifications');panel.innerHTML='<div class="panel-header"><div><h3>Announcements</h3><p>Publish transport updates to the selected audience.</p></div><button class="btn btn-primary" id="admin-send-announcement">＋ New announcement</button></div>'+ (rows.length?rows.map(x=>'<div class="alert-row"><div class="alert-copy"><b>'+adminEsc(x.title)+' · '+adminEsc(x.audience)+'</b><p>'+adminEsc(x.message)+'</p><small>'+adminEsc(x.created_at)+'</small></div></div>').join(''):'<p>No announcements have been published.</p>');document.getElementById('admin-send-announcement').onclick=async()=>{const title=prompt('Announcement title');if(!title)return;const message=prompt('Announcement message');if(!message)return;const audience=prompt('Audience: ALL, STUDENT or DRIVER','ALL');if(!audience)return;try{await adminCall('/api/admin/notifications','POST',{title,message,audience:audience.toUpperCase()});toast('Announcement saved');loadAdminAnnouncements()}catch(e){toast(e.message,'error')}};}catch(e){toast(e.message,'error')}
+}
+async function loadAdminReportSummary(){
+ if(role!=='ADMIN')return;
+ const host=document.querySelector('#view-reports .report-grid');if(!host)return;
+ try{const d=await adminGet('/api/admin/reports');let panel=document.getElementById('admin-report-summary');if(!panel){panel=document.createElement('div');panel.id='admin-report-summary';panel.className='metric-grid';host.insertAdjacentElement('beforebegin',panel);}panel.innerHTML=Object.entries(d).map(([k,v])=>'<div class="metric-card"><div class="metric-top"><span>'+adminEsc(k.replaceAll('_',' '))+'</span></div><div class="metric-value">'+adminEsc(v)+'</div></div>').join('')}catch(e){toast(e.message,'error')}
+}
+document.querySelectorAll('.nav-item[data-view="alerts"]').forEach(n=>n.addEventListener('click',()=>setTimeout(loadAdminAnnouncements,150)));
+document.querySelectorAll('.nav-item[data-view="reports"]').forEach(n=>n.addEventListener('click',()=>setTimeout(loadAdminReportSummary,150)));
