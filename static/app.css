@@ -218,3 +218,13 @@ table td{font-size:11px;color:#554b5d}
 /* Selected bus route preview marker */
 .bus-map-marker.selected.demo{background:#1458a8;color:#fff;border:2px solid #fff;box-shadow:0 0 0 4px #2878e833,0 6px 16px #17274640;padding:7px 9px}
 .bus-map-marker.demo small{display:inline-block;margin-left:4px;padding:2px 4px;border-radius:4px;background:#fff;color:#1458a8;font-size:7px;font-weight:900;letter-spacing:.04em;vertical-align:1px}
+
+/* Cleaner selected-bus tracking map and vehicle marker */
+#tracking-map{background:#e8edf2}
+#tracking-map .leaflet-tile{filter:saturate(1.08) contrast(1.02)}
+#tracking-map .leaflet-control-zoom a{width:34px;height:34px;line-height:34px;font-size:18px}
+.joy-bus-icon{background:transparent!important;border:0!important}
+.joy-bus-icon .bus-map-marker{display:flex;align-items:center;gap:6px;min-width:max-content;border-radius:24px;padding:7px 11px;background:#fff;color:#16324f;border:2px solid #fff;box-shadow:0 3px 14px #102b4b55;font-size:11px}
+.joy-bus-icon .bus-direction{display:inline-block;font-size:19px;transform-origin:center;line-height:1}
+.joy-bus-icon .bus-map-marker.selected{background:#075fc5;color:#fff;border-color:#fff;box-shadow:0 0 0 5px #1677e633,0 5px 20px #102b4b66}
+.joy-bus-icon .bus-map-marker small{font-size:8px;font-weight:900;letter-spacing:.04em;color:#075fc5;background:#e8f3ff;padding:3px 5px;border-radius:5px}
