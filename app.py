@@ -78,7 +78,16 @@ def init_db():
         con.execute('INSERT OR IGNORE INTO students(register_no,name,department,academic_year,bus_id,route_id) VALUES(?,?,?,?,?,?)',('student','Demo Student','General','2026-27',1,1))
         if not con.execute('SELECT id FROM trips WHERE driver_id=? LIMIT 1',(driver_id,)).fetchone():
             con.execute('INSERT INTO trips(bus_id,route_id,driver_id,planned_start,status) VALUES(?,?,?,?,?)',(1,1,driver_id,now_iso(),'Scheduled'))
-        # Coordinates intentionally absent: no fabricated GPS is shown as live.
+        # Coordinates intentionally absent for live GPS. These public reference points
+        # support a clearly labelled road-route preview only, never live bus location.
+        for rid, stop_name in [(1,'Vadakangulam Campus'),(2,'Tirunelveli Bus Stand'),(3,'Kanyakumari'),(4,'Chettikulam'),(5,'Kaliyakkavilai'),(6,'Rajakkamangalam'),(7,'Kalakkad'),(8,'Thisayanvilai'),(9,'Thalayuthu'),(10,'Ambasamudram')]:
+            con.execute('INSERT OR IGNORE INTO stops(route_id,name,sequence,coord_status) VALUES(?,?,?,?)', (rid, stop_name, 1, 'Approximate - verify'))
+        # Public reference coordinates for the R01 local road-preview demonstration.
+        # The transport office must confirm these as actual service stops before operation.
+        con.execute('UPDATE stops SET name=?,lat=?,lng=?,coord_status=? WHERE route_id=1 AND sequence=1',
+                    ('Vadakkankulam Post Office',8.2577778,77.6064167,'Public map reference - transport office verification required'))
+        con.execute('INSERT OR IGNORE INTO stops(route_id,name,sequence,lat,lng,coord_status) VALUES(?,?,?,?,?,?)',
+                    (1,'Vadakkankulam Town Centre',2,8.267,77.600,'Published town-centre reference - transport office verification required'))
         for rid, stop_name in [(1,'Vadakangulam Campus'),(2,'Tirunelveli Bus Stand'),(3,'Kanyakumari'),(4,'Chettikulam'),(5,'Kaliyakkavilai'),(6,'Rajakkamangalam'),(7,'Kalakkad'),(8,'Thisayanvilai'),(9,'Thalayuthu'),(10,'Ambasamudram')]:
             con.execute('INSERT OR IGNORE INTO stops(route_id,name,sequence,coord_status) VALUES(?,?,?,?)', (rid, stop_name, 1, 'Approximate - verify'))
 
