@@ -519,11 +519,11 @@ def student_me():
         if not st.get('route_id') and st.get('bus_id'):
             linked=con.execute('SELECT route_id FROM buses WHERE id=?',(st['bus_id'],)).fetchone()
             if linked:st['route_id']=linked['route_id']
-        bus=con.execute('SELECT b.id,b.bus_no,b.registration,b.status,u.full_name driver_name,r.name route_name FROM buses b LEFT JOIN users u ON u.id=b.driver_id LEFT JOIN routes r ON r.id=b.route_id WHERE b.id=?',(st.get('bus_id'),)).fetchone() if st.get('bus_id') else None
-        route=con.execute('SELECT * FROM routes WHERE id=?',(st.get('route_id'),)).fetchone() if st.get('route_id') else None
+        bus=con.execute('SELECT b.id,b.bus_no,b.registration,b.status,u.full_name driver_name,r.name route_name,l.lat,l.lng,l.recorded_at,l.source FROM buses b LEFT JOIN users u ON u.id=b.driver_id LEFT JOIN routes r ON r.id=b.route_id LEFT JOIN locations l ON l.id=(SELECT id FROM locations WHERE bus_id=b.id ORDER BY id DESC LIMIT 1) WHERE b.id=?',(st.get('bus_id'),)).fetchone() if st.get('bus_id') else None
+        if bus:\n            bus_data=dict(bus);bus_data['tracking_status']='NOT CONNECTED'\n            if bus_data.get('recorded_at'):\n                try:\n                    gps_age=(datetime.now(timezone.utc)-datetime.fromisoformat(bus_data['recorded_at'].replace('Z','+00:00')).astimezone(timezone.utc)).total_seconds();bus_data['tracking_status']='LIVE GPS' if gps_age<=90 and bus_data.get('source')=='device' else 'STALE'\n                except Exception:pass\n        else:bus_data=None\n        route=con.execute('SELECT * FROM routes WHERE id=?',(st.get('route_id'),)).fetchone() if st.get('route_id') else None
         stops=con.execute('SELECT name,sequence,eta FROM stops WHERE route_id=? ORDER BY sequence',(st.get('route_id'),)).fetchall() if st.get('route_id') else []
         attendance=con.execute('SELECT a.boarding_time,a.status,b.bus_no FROM attendance a LEFT JOIN buses b ON b.id=a.bus_id WHERE a.student_id=? ORDER BY a.id DESC LIMIT 100',(st['id'],)).fetchall()
-    return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'student':st,'bus':dict(bus) if bus else None,'route':dict(route) if route else None,'stops':[dict(x) for x in stops],'attendance':[dict(x) for x in attendance]})
+    return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'student':st,'bus':bus_data,'route':dict(route) if route else None,'stops':[dict(x) for x in stops],'attendance':[dict(x) for x in attendance]})
 
 @app.get('/api/driver/me')
 @roles_required('DRIVER')
@@ -532,8 +532,9 @@ def driver_me():
     with db_conn() as con:
         bus=con.execute('SELECT b.id,b.bus_no,b.registration,b.status,b.capacity,b.route_id,r.name route_name,r.route_code FROM buses b LEFT JOIN routes r ON r.id=b.route_id WHERE b.driver_id=? ORDER BY b.id LIMIT 1',(user['id'],)).fetchone()
         trips=con.execute('SELECT t.id,t.planned_start,t.planned_end,t.status,t.route_id,r.name route_name,b.bus_no FROM trips t LEFT JOIN routes r ON r.id=t.route_id LEFT JOIN buses b ON b.id=t.bus_id WHERE t.driver_id=? ORDER BY t.id DESC LIMIT 100',(user['id'],)).fetchall()
+        stops=con.execute('SELECT name,sequence,eta FROM stops WHERE route_id=? ORDER BY sequence',(bus['route_id'],)).fetchall() if bus and bus['route_id'] else []
         attendance=con.execute('SELECT a.id,a.boarding_time,a.status,s.name student_name,s.register_no FROM attendance a JOIN students s ON s.id=a.student_id WHERE a.bus_id=? ORDER BY a.id DESC LIMIT 200',(bus['id'],)).fetchall() if bus else []
-    return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'bus':dict(bus) if bus else None,'trips':[dict(x) for x in trips],'attendance':[dict(x) for x in attendance]})
+    return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'bus':dict(bus) if bus else None,'trips':[dict(x) for x in trips],'stops':[dict(x) for x in stops],'attendance':[dict(x) for x in attendance]})
 
 @app.post('/api/driver/trips/<int:trip_id>')
 @roles_required('DRIVER')
