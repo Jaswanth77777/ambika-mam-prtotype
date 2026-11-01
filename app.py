@@ -352,7 +352,7 @@ def import_file(category):
                     else:
                         con.execute('INSERT INTO students(name,department,academic_year,phone,bus_id,route_id,register_no) VALUES(?,?,?,?,?,?,?)', vals)
                         imported+=1
-                    if mode!='add_only':
+                    if mode!='add_only' or not existing:
                         account=con.execute('SELECT id,role FROM users WHERE username=?',(reg.lower(),)).fetchone()
                         if account and account['role']!='STUDENT': raise ValueError('Register number is already used by a non-student account')
                         initial_password=str(row.get('initial_password') or row.get('password') or '')
