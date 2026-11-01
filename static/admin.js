@@ -85,3 +85,5 @@ async function loadRoleAnnouncements(){
  }catch(e){}
 }
 loadRoleAnnouncements();setInterval(loadRoleAnnouncements,60000);
+
+function filterAdminRows(){const q=(document.getElementById('admin-record-search')?.value||'').toLowerCase();document.querySelectorAll('#admin-table-body tr').forEach(row=>row.classList.toggle('hidden',!row.textContent.toLowerCase().includes(q)));}
