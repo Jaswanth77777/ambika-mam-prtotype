@@ -566,11 +566,19 @@ def update_student_profile():
 def driver_me():
     user=current_user()
     with db_conn() as con:
-        bus=con.execute('SELECT b.id,b.bus_no,b.registration,b.status,b.capacity,b.route_id,r.name route_name,r.route_code FROM buses b LEFT JOIN routes r ON r.id=b.route_id WHERE b.driver_id=? ORDER BY b.id LIMIT 1',(user['id'],)).fetchone()
+        bus=con.execute('''SELECT b.id,b.bus_no,b.registration,b.status,b.capacity,b.route_id,r.name route_name,r.route_code,l.lat,l.lng,l.speed,l.recorded_at,l.source FROM buses b LEFT JOIN routes r ON r.id=b.route_id LEFT JOIN locations l ON l.id=(SELECT id FROM locations WHERE bus_id=b.id ORDER BY recorded_at DESC,id DESC LIMIT 1) WHERE b.driver_id=? ORDER BY b.id LIMIT 1''',(user['id'],)).fetchone()
         trips=con.execute('SELECT t.id,t.planned_start,t.planned_end,t.status,t.route_id,r.name route_name,b.bus_no FROM trips t LEFT JOIN routes r ON r.id=t.route_id LEFT JOIN buses b ON b.id=t.bus_id WHERE t.driver_id=? ORDER BY t.id DESC LIMIT 100',(user['id'],)).fetchall()
         stops=con.execute('SELECT name,sequence,eta FROM stops WHERE route_id=? ORDER BY sequence',(bus['route_id'],)).fetchall() if bus and bus['route_id'] else []
         attendance=con.execute('SELECT a.id,a.boarding_time,a.status,s.name student_name,s.register_no FROM attendance a JOIN students s ON s.id=a.student_id WHERE a.bus_id=? ORDER BY a.id DESC LIMIT 200',(bus['id'],)).fetchall() if bus else []
-    return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'bus':dict(bus) if bus else None,'trips':[dict(x) for x in trips],'stops':[dict(x) for x in stops],'attendance':[dict(x) for x in attendance]})
+    bus_data=dict(bus) if bus else None
+    if bus_data:
+        bus_data['tracking_status']='NOT CONNECTED'
+        if bus_data.get('recorded_at'):
+            try:
+                age=(datetime.now(timezone.utc)-datetime.fromisoformat(bus_data['recorded_at'].replace('Z','+00:00')).astimezone(timezone.utc)).total_seconds()
+                bus_data['tracking_status']='LIVE GPS' if age<=90 and bus_data.get('source')=='device' else 'STALE'
+            except (TypeError,ValueError): pass
+    return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'bus':bus_data,'trips':[dict(x) for x in trips],'stops':[dict(x) for x in stops],'attendance':[dict(x) for x in attendance]})
 
 @app.post('/api/driver/trips/<int:trip_id>')
 @roles_required('DRIVER')
