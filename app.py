@@ -186,8 +186,8 @@ def overview():
 @login_required
 def api_buses():
     user=current_user();scope='';params=()
+    # Admins and students can view the complete fleet map; drivers only see their assigned vehicle.
     if user['role']=='DRIVER':scope=' WHERE b.driver_id=?';params=(user['id'],)
-    elif user['role']=='STUDENT':scope=' WHERE b.id=(SELECT bus_id FROM students WHERE lower(register_no)=lower(?) LIMIT 1)';params=(user['username'],)
     with db_conn() as con:
         rows=con.execute('''SELECT b.*,r.name route_name,u.full_name driver_name,l.lat,l.lng,l.speed,l.heading,l.accuracy,l.recorded_at,l.source FROM buses b LEFT JOIN routes r ON r.id=b.route_id LEFT JOIN users u ON u.id=b.driver_id LEFT JOIN locations l ON l.id=(SELECT id FROM locations WHERE bus_id=b.id ORDER BY recorded_at DESC,id DESC LIMIT 1)''' + scope + ' ORDER BY b.bus_no',params).fetchall()
     result=[]; now=datetime.now(timezone.utc)
