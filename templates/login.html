@@ -3,44 +3,30 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#35105f">
-<title>JOY University · Secure sign in</title>
+<title>JOY University · Smart Bus Tracking Demo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}?v=joy-login-email-4">
+<link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}?v=joy-demo-entry-1">
+<style>
+.demo-entry{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#211039,#35105f 55%,#6d35a5)}
+.demo-card{width:min(100%,520px);padding:48px 36px;text-align:center;background:#fff;border-radius:24px;box-shadow:0 24px 80px #13092366}
+.demo-card img{width:94px;height:94px;object-fit:contain;margin-bottom:18px}
+.demo-card h1{color:#35105f;font:800 clamp(25px,5vw,36px) Manrope,sans-serif;margin:0 0 10px}
+.demo-card p{color:#5d5865;line-height:1.65;margin:0 auto 24px;max-width:390px}
+.demo-admin{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-width:220px;padding:16px 26px;border-radius:12px;background:#6d35a5;color:#fff;text-decoration:none;font-weight:700}
+.demo-admin:hover{background:#35105f}
+.demo-warning{display:block;margin-top:22px;color:#8b6b27;font-size:12px;line-height:1.5}
+</style>
 </head>
-<body class="login-page">
-<main class="login-shell login-shell-new">
-<section class="login-brand login-brand-new">
-<div class="brand-lockup"><img src="{{ url_for('static',filename='assets/joy-university-logo.jpg') }}" alt="JOY University logo"><div><b>JOY UNIVERSITY</b><span>SMART BUS TRACKING</span></div></div>
-<div class="login-brand-content">
-<div class="login-pill"><i></i> CAMPUS MOBILITY · CONNECTED</div>
-<h1>Move smarter.<br><em>Arrive with confidence.</em></h1>
-<p>One secure workspace for student journeys, driver operations and university transport teams.</p>
-<div class="login-feature-list">
-<div><span>01</span><b>Live bus visibility</b><small>Follow your assigned vehicle</small></div>
-<div><span>02</span><b>Connected operations</b><small>Trips, routes and attendance</small></div>
-<div><span>03</span><b>Campus support</b><small>Help when you need it</small></div>
-</div>
-</div>
-<div class="brand-footer">Raja Nagar · Vadakangulam · Tamil Nadu</div>
-<div class="login-orbit orbit-one"></div><div class="login-orbit orbit-two"></div>
-</section>
-<section class="login-panel login-panel-new">
-<div class="login-content login-content-new">
-<div class="login-mobile-brand"><img src="{{ url_for('static',filename='assets/joy-university-logo.jpg') }}" alt=""><span>JOY UNIVERSITY</span></div>
-<div class="eyebrow">YOUR TRANSPORT WORKSPACE</div>
-<h2>Welcome back</h2>
-<p class="login-subtitle">Sign in to continue to your secure portal.</p>
-{% with messages=get_flashed_messages(with_categories=true) %}{% if messages %}{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}{% endif %}{% endwith %}
-<form method="post" action="{{ url_for('login_post') }}" class="login-form login-form-new">
-<input type="hidden" name="csrf" value="{{ session.get('csrf', '') }}">
-<label for="username">Email / Username</label><input id="username" type="text" name="username" autocomplete="username" inputmode="email" placeholder="Enter your email or username" required autofocus>
-<label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
-<button class="btn btn-primary btn-wide" type="submit">Sign in securely <span>→</span></button>
-</form>
-<div class="login-security"><span>♢</span><div><b>Private & role-based access</b><small>Your portal only displays information permitted for your account.</small></div></div>
-<div class="login-help">Need access or account assistance?<br>JOY University Transport Help <a href="tel:8919209636">8919209636</a></div>
-</div>
+<body>
+<main class="demo-entry">
+<section class="demo-card">
+<img src="{{ url_for('static',filename='assets/joy-university-logo.jpg') }}" alt="JOY University logo">
+<h1>JOY University</h1>
+<p>Smart Bus Tracking System</p>
+<a class="demo-admin" href="{{ url_for('admin_entry') }}">Open Admin Dashboard <span aria-hidden="true">→</span></a>
+<small class="demo-warning">DEMO MODE · No login required. Anyone with this link can open and change demo records. Do not use real student or transport data.</small>
 </section>
 </main>
-</body></html>
+</body>
+</html>

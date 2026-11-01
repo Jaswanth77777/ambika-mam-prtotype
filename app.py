@@ -121,54 +121,39 @@ def healthz():
         return jsonify({'status':'error','service':'joy-university-smart-bus'}), 503
 
 
-@app.get('/login')
+@app.get('/')
 def login():
-    if current_user(): return redirect(url_for('home'))
-    if not session.get('csrf'): session['csrf'] = secrets.token_urlsafe(32)
+    # Public demo landing page: no username or password is required.
     return render_template('login.html')
+
+@app.get('/login')
+def login_alias():
+    return redirect(url_for('login'))
 
 @app.post('/login')
 def login_post():
-    token = request.form.get('csrf', '')
-    if not token or not secrets.compare_digest(token, session.get('csrf', '')):
-        return jsonify({'error': 'Your sign-in page expired. Refresh and try again.'}), 400
-    username = request.form.get('username', '').strip().lower()[:120]
-    password = request.form.get('password', '')
-    ip_address = (request.remote_addr or 'unknown')[:64]
-    now = time.time()
+    return redirect(url_for('admin_entry'))
+
+@app.post('/logout')
+def logout():
+    # Demo mode returns to the public landing page.
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.get('/admin')
+def admin_entry():
+    # DEMO ONLY: public one-click administrator access. Do not use with real data.
     with db_conn() as con:
-        con.execute('DELETE FROM login_attempts WHERE attempted_at < ?', (now - 86400,))
-        recent_ip = con.execute('SELECT COUNT(*) FROM login_attempts WHERE ip_address=? AND attempted_at>?', (ip_address, now - 900)).fetchone()[0]
-        recent_pair = con.execute('SELECT COUNT(*) FROM login_attempts WHERE username=? AND ip_address=? AND attempted_at>?', (username, ip_address, now - 900)).fetchone()[0]
-        if recent_ip >= 20 or recent_pair >= 8:
-            flash('Too many sign-in attempts. Please wait 15 minutes and try again.', 'error')
-            return redirect(url_for('login'))
-        user = con.execute('SELECT * FROM users WHERE username=? AND active=1', (username,)).fetchone()
-        valid = bool(user and user['role'] in ('ADMIN', 'STUDENT', 'DRIVER') and check_password_hash(user['password_hash'], password))
-        if not valid:
-            con.execute('INSERT INTO login_attempts(username,ip_address,attempted_at) VALUES(?,?,?)', (username, ip_address, now))
-        else:
-            con.execute('DELETE FROM login_attempts WHERE username=? AND ip_address=?', (username, ip_address))
-    if not valid:
-        flash('Username or password is incorrect.', 'error')
-        return redirect(url_for('login'))
+        user = con.execute("SELECT id FROM users WHERE username='admin' AND role='ADMIN' AND active=1").fetchone()
+    if not user:
+        return "Demo admin account is unavailable. Check the database seed.", 503
     session.clear()
     session.permanent = True
     session['uid'] = user['id']
     session['csrf'] = secrets.token_urlsafe(32)
-    audit('login', user['role'])
     return redirect(url_for('home'))
 
-@app.post('/logout')
-def logout():
-    token = request.form.get('csrf', '')
-    if not token or not secrets.compare_digest(token, session.get('csrf', '')):
-        return jsonify({'error': 'Session expired. Refresh the page and try again.'}), 400
-    audit('logout')
-    session.clear()
-    return redirect(url_for('login'))
-
-@app.get('/')
+@app.get('/dashboard')
 @login_required
 def home():
     u=current_user()
