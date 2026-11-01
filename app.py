@@ -520,7 +520,14 @@ def student_me():
             linked=con.execute('SELECT route_id FROM buses WHERE id=?',(st['bus_id'],)).fetchone()
             if linked:st['route_id']=linked['route_id']
         bus=con.execute('SELECT b.id,b.bus_no,b.registration,b.status,u.full_name driver_name,r.name route_name,l.lat,l.lng,l.recorded_at,l.source FROM buses b LEFT JOIN users u ON u.id=b.driver_id LEFT JOIN routes r ON r.id=b.route_id LEFT JOIN locations l ON l.id=(SELECT id FROM locations WHERE bus_id=b.id ORDER BY id DESC LIMIT 1) WHERE b.id=?',(st.get('bus_id'),)).fetchone() if st.get('bus_id') else None
-        if bus:\n            bus_data=dict(bus);bus_data['tracking_status']='NOT CONNECTED'\n            if bus_data.get('recorded_at'):\n                try:\n                    gps_age=(datetime.now(timezone.utc)-datetime.fromisoformat(bus_data['recorded_at'].replace('Z','+00:00')).astimezone(timezone.utc)).total_seconds();bus_data['tracking_status']='LIVE GPS' if gps_age<=90 and bus_data.get('source')=='device' else 'STALE'\n                except Exception:pass\n        else:bus_data=None\n        route=con.execute('SELECT * FROM routes WHERE id=?',(st.get('route_id'),)).fetchone() if st.get('route_id') else None
+        if bus:
+            bus_data=dict(bus);bus_data['tracking_status']='NOT CONNECTED'
+            if bus_data.get('recorded_at'):
+                try:
+                    gps_age=(datetime.now(timezone.utc)-datetime.fromisoformat(bus_data['recorded_at'].replace('Z','+00:00')).astimezone(timezone.utc)).total_seconds();bus_data['tracking_status']='LIVE GPS' if gps_age<=90 and bus_data.get('source')=='device' else 'STALE'
+                except Exception:pass
+        else:bus_data=None
+        route=con.execute('SELECT * FROM routes WHERE id=?',(st.get('route_id'),)).fetchone() if st.get('route_id') else None
         stops=con.execute('SELECT name,sequence,eta FROM stops WHERE route_id=? ORDER BY sequence',(st.get('route_id'),)).fetchall() if st.get('route_id') else []
         attendance=con.execute('SELECT a.boarding_time,a.status,b.bus_no FROM attendance a LEFT JOIN buses b ON b.id=a.bus_id WHERE a.student_id=? ORDER BY a.id DESC LIMIT 100',(st['id'],)).fetchall()
     return jsonify({'user':{'username':user['username'],'full_name':user['full_name']},'student':st,'bus':bus_data,'route':dict(route) if route else None,'stops':[dict(x) for x in stops],'attendance':[dict(x) for x in attendance]})
