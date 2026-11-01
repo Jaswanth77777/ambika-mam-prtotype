@@ -9,20 +9,21 @@
 <link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}?v=joy-simple-email-login-1">
 <style>
 .login-page{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#211039,#35105f 55%,#6d35a5);font-family:'DM Sans',sans-serif}
-.login-card{width:min(100%,460px);padding:38px 34px;background:#fff;border-radius:22px;box-shadow:0 24px 80px #13092366}
+.login-card{width:min(100%,520px);padding:38px 34px;background:#fff;border-radius:22px;box-shadow:0 24px 80px #13092366}
 .login-logo{display:block;width:82px;height:82px;object-fit:contain;margin:0 auto 14px}
 .login-card h1{text-align:center;color:#35105f;font:800 28px Manrope,sans-serif;margin:0 0 7px}
-.login-subtitle{text-align:center;color:#686171;margin:0 0 18px}\n.login-method-title{text-align:center;color:#35105f;font:700 15px Manrope,sans-serif;margin:0 0 18px}
+.login-subtitle{text-align:center;color:#686171;margin:0 0 18px}
+.login-method-title{text-align:center;color:#35105f;font:700 15px Manrope,sans-serif;margin:0 0 18px}
 .login-field{display:block;margin:0 0 16px;color:#393244;font-weight:700;font-size:14px}
 .login-field input{display:block;width:100%;box-sizing:border-box;margin-top:7px;padding:13px 14px;border:1px solid #d9d3e2;border-radius:10px;font:inherit;color:#241b30;background:#fff}
 .login-field input:focus{outline:2px solid #9b78c2;border-color:#6d35a5}
 .login-submit{width:100%;border:0;border-radius:10px;padding:14px;background:#6d35a5;color:#fff;font-weight:700;font-size:16px;cursor:pointer}
 .login-submit:hover{background:#35105f}
 .login-error{padding:10px 12px;border-radius:8px;background:#fff0f0;color:#9c2525;margin-bottom:16px;font-size:14px}
-.demo-credentials{border:1px solid #d8c9e8;border-radius:12px;background:#f7f2fc;margin-top:24px;padding:16px;color:#393244;font-size:14px;line-height:1.9}\n.demo-credentials h2{font-size:16px;color:#35105f;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid #e2d7ed}
-.demo-credentials h2{font-size:14px;color:#35105f;margin:0 0 8px}
-.demo-credentials p{margin:3px 0}
-.demo-note{margin:14px 0 0;color:#8b6b27;font-size:12px;line-height:1.5}
+.demo-credentials{display:block!important;visibility:visible!important;opacity:1!important;border:2px solid #8c62b5;border-radius:14px;background:#f4ebff;margin-top:26px;padding:18px;color:#241b30;font-size:15px;line-height:1.9}
+.demo-credentials h2{font-size:18px;color:#35105f;margin:0 0 12px;padding-bottom:9px;border-bottom:1px solid #d8c5ec}
+.demo-credentials p{margin:4px 0}
+.demo-note{margin:12px 0 0;color:#66527a;font-size:12px;line-height:1.5}
 @media(max-width:480px){.login-card{padding:30px 22px}}
 </style>
 </head>
@@ -31,7 +32,8 @@
 <section class="login-card">
 <img class="login-logo" src="{{ url_for('static',filename='assets/joy-university-logo.jpg') }}" alt="JOY University logo">
 <h1>JOY University</h1>
-<p class="login-subtitle">Smart Bus Tracking System</p>\n<h2 class="login-method-title">Email &amp; Password Login</h2>
+<p class="login-subtitle">Smart Bus Tracking System</p>
+<h2 class="login-method-title">Email &amp; Password Login</h2>
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% for category, message in messages %}
     <div class="login-error" role="alert">{{ message }}</div>
@@ -46,15 +48,15 @@
 </label>
 <button class="login-submit" type="submit">Login</button>
 </form>
-<div class="demo-credentials">
-<h2>Demo Login Details</h2>
+<section class="demo-credentials" aria-label="Demo login credentials">
+<h2>Demo Login Details — Use These Accounts</h2>
 <p><strong>Admin email:</strong> admin@joyuniversity.edu</p>
 <p><strong>Admin password:</strong> Admin@123</p>
 <p><strong>Driver email:</strong> driver@joyuniversity.edu</p>
 <p><strong>Driver password:</strong> Driver@123</p>
 <p><strong>Student email:</strong> student@joyuniversity.edu</p>
 <p><strong>Student password:</strong> Student@123</p>
-</div>
+</section>
 <p class="demo-note">Demo accounts are shown for testing. Change these passwords and use private accounts before adding real student or transport data.</p>
 </section>
 </main>
