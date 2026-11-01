@@ -361,7 +361,7 @@ def import_file(category):
                             con.execute('INSERT INTO users(username,password_hash,role,full_name,created_at) VALUES(?,?,?,?,?)',(reg.lower(),generate_password_hash(initial_password),'STUDENT',name[:120],now_iso()))
                         else:
                             con.execute('UPDATE users SET full_name=? WHERE id=?',(name[:120],account['id']))
-            con.execute('RELEASE import_row')
+                con.execute('RELEASE import_row')
             except Exception as e:
                 con.execute('ROLLBACK TO import_row')
                 con.execute('RELEASE import_row')
