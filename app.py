@@ -414,7 +414,11 @@ def admin_update_record(resource,rid):
                 if data.get('status')=='In progress' and old['status'] not in ('Scheduled','In progress'):return jsonify({'error':'Only scheduled trips can start'}),409
                 if data.get('status')=='In progress':data['actual_start']=now_iso()
                 if data.get('status')=='Completed':data['actual_end']=now_iso()
-        if resource=='maintenance' and data.get('status')=='Resolved':data.update(resolved_at=now_iso())
+        if resource=='maintenance' and data.get('status')=='Resolved':
+            data.update(resolved_at=now_iso())
+            with db_conn() as con:
+                m=con.execute('SELECT bus_id FROM maintenance WHERE id=?',(rid,)).fetchone()
+                if m: con.execute('UPDATE buses SET status=? WHERE id=?',('Active',m['bus_id']))
         with db_conn() as con:con.execute('UPDATE '+table+' SET '+','.join(k+'=?' for k in data)+' WHERE id=?',list(data.values())+[rid])
     else:return jsonify({'error':'This module cannot be edited'}),400
     audit(resource+'_updated',str(rid));return jsonify({'ok':True})
