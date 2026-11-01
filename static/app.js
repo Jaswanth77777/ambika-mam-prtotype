@@ -12,7 +12,7 @@ function initMap(which){const isOverview=which==='overview';const id=isOverview?
 function initTrackingMap(){return initMap('tracking')}
 function setMapMode(mode){const map=initTrackingMap();if(!map)return;Object.values(tileLayers).forEach(l=>{if(map.hasLayer(l))map.removeLayer(l)});(mode==='satellite'?tileLayers.aerial:tileLayers.standard).addTo(map);$('mode-2d').classList.toggle('active',mode==='2d');$('mode-satellite').classList.toggle('active',mode==='satellite')}
 function markerIcon(bus,selected=false){const cls=statusClass(bus.tracking_status);return L.divIcon({className:'',html:`<div class="bus-map-marker ${cls} ${selected?'selected':''}">🚌 ${esc(bus.bus_no)}</div>`,iconSize:null,iconAnchor:[35,17]})}
-function upsertMarkers(mapName,map){if(!map)return;const holder=markers[mapName];const visible=buses.filter(b=>b.lat!==null&&b.lat!==undefined&&b.lng!==null&&b.lng!==undefined&&Number.isFinite(Number(b.lat))&&Number.isFinite(Number(b.lng)));visible.forEach(b=>{const key=b.id;const ll=[Number(b.lat),Number(b.lng)];if(!holder[key]){holder[key]=L.marker(ll,{icon:markerIcon(b,selectedBus===key)}).addTo(map);holder[key].on('click',()=>selectBus(key,true));}else{const marker=holder[key],from=marker.getLatLng();marker.setIcon(markerIcon(b,selectedBus===key));if(Math.abs(from.lat-ll[0])+Math.abs(from.lng-ll[1])>0.00001){const token=(marker._joyMoveToken||0)+1;marker._joyMoveToken=token;const start=performance.now(),duration=1200;function moveFrame(now){if(marker._joyMoveToken!==token)return;const t=Math.min(1,(now-start)/duration),ease=t*t*(3-2*t);marker.setLatLng([from.lat+(ll[0]-from.lat)*ease,from.lng+(ll[1]-from.lng)*ease]);if(t<1)requestAnimationFrame(moveFrame)}requestAnimationFrame(moveFrame)}else marker.setLatLng(ll);}holder[key].bindPopup(`<div class="popup-bus"><b>${esc(b.bus_no)} · ${esc(b.tracking_status)}</b><p>Route: ${esc(b.route_name||'Not assigned')}<br>Speed: ${b.speed==null?'Unavailable':Math.round(b.speed*3.6)+' km/h'}<br>Last update: ${esc(formatAge(b.age_seconds))}<br>Source: ${esc(b.source||'No GPS data')}</p></div>`)});Object.keys(holder).forEach(k=>{if(!visible.some(b=>String(b.id)===String(k))){map.removeLayer(holder[k]);delete holder[k]}})}
+function upsertMarkers(mapName,map){if(!map)return;const holder=markers[mapName];const visible=buses.filter(b=>(mapName!=='tracking'||selectedBus===null||Number(b.id)===Number(selectedBus))&&b.lat!==null&&b.lat!==undefined&&b.lng!==null&&b.lng!==undefined&&Number.isFinite(Number(b.lat))&&Number.isFinite(Number(b.lng)));visible.forEach(b=>{const key=b.id;const ll=[Number(b.lat),Number(b.lng)];if(!holder[key]){holder[key]=L.marker(ll,{icon:markerIcon(b,selectedBus===key)}).addTo(map);holder[key].on('click',()=>selectBus(key,true));}else{const marker=holder[key],from=marker.getLatLng();marker.setIcon(markerIcon(b,selectedBus===key));if(Math.abs(from.lat-ll[0])+Math.abs(from.lng-ll[1])>0.00001){const token=(marker._joyMoveToken||0)+1;marker._joyMoveToken=token;const start=performance.now(),duration=1200;function moveFrame(now){if(marker._joyMoveToken!==token)return;const t=Math.min(1,(now-start)/duration),ease=t*t*(3-2*t);marker.setLatLng([from.lat+(ll[0]-from.lat)*ease,from.lng+(ll[1]-from.lng)*ease]);if(t<1)requestAnimationFrame(moveFrame)}requestAnimationFrame(moveFrame)}else marker.setLatLng(ll);}holder[key].bindPopup(`<div class="popup-bus"><b>${esc(b.bus_no)} · ${esc(b.tracking_status)}</b><p>Route: ${esc(b.route_name||'Not assigned')}<br>Speed: ${b.speed==null?'Unavailable':Math.round(b.speed*3.6)+' km/h'}<br>Last update: ${esc(formatAge(b.age_seconds))}<br>Source: ${esc(b.source||'No GPS data')}</p></div>`)});Object.keys(holder).forEach(k=>{if(!visible.some(b=>String(b.id)===String(k))){map.removeLayer(holder[k]);delete holder[k]}})}
 function formatAge(seconds){if(seconds==null)return 'No location received';if(seconds<60)return `${seconds}s ago`;if(seconds<3600)return `${Math.floor(seconds/60)}m ago`;return `${Math.floor(seconds/3600)}h ago`}
 async function getJSON(url){const r=await fetch(url,{credentials:'same-origin',headers:{'Accept':'application/json'}});let data;try{data=await r.json()}catch(_){data=null}if(!r.ok)throw new Error(data?.error||`Request failed (${r.status})`);return data}
 async function loadOverview(){try{const data=await getJSON('/api/overview');buses=data.buses;renderMetrics(data.counts);renderMiniFleet();renderImports(data.imports);upsertMarkers('overview',initMap('overview'));$('connection-label').textContent='Portal connected';}catch(e){toast(e.message,'error')}}
@@ -22,19 +22,55 @@ function renderImports(rows){if(!rows?.length){$('recent-imports').innerHTML='<d
 async function refreshBuses(){try{buses=await getJSON('/api/buses');Object.keys(demoMarkers).forEach(k=>{const b=buses.find(x=>String(x.id)===String(k));if(b&&b.lat!=null&&b.lng!=null){trackingMap?.removeLayer(demoMarkers[k].marker);trackingMap?.removeLayer(demoMarkers[k].routeLine);delete demoMarkers[k];if(demoAnimation){cancelAnimationFrame(demoAnimation);demoAnimation=null}}});renderBusList();renderBusTable();upsertMarkers('overview',initMap('overview'));upsertMarkers('tracking',initTrackingMap());if(selectedBus)renderSelectedDetail();else if(trackingMap)fitFleet();const live=buses.some(b=>b.tracking_status==='LIVE GPS');$('nav-live-dot').style.background=live?'#44c8a1':'#a6b2c3'}catch(e){$('connection-label').textContent='Connection issue'}}
 async function openMyBusTracking(){const data=role==='STUDENT'?window.studentData:window.driverData;const bus=data?.bus;if(!bus?.id){toast('No bus is assigned to this account yet.','error');return}navigate('tracking');await refreshBuses();if(!trackingMap)trackingMap=initTrackingMap();selectBus(Number(bus.id),true)}
 function renderBusList(){if(!$('bus-list'))return;const q=($('bus-search')?.value||'').toLowerCase(),route=$('route-filter')?.value||'',status=$('status-filter')?.value||'';const filtered=buses.filter(b=>(!q||`${b.bus_no} ${b.route_name||''}`.toLowerCase().includes(q))&&(!route||String(b.route_id)===route)&&(!status||b.tracking_status===status));$('bus-list-count').textContent=`${filtered.length} of ${buses.length} buses`;$('bus-list').innerHTML=filtered.map(b=>`<div class="bus-list-item ${selectedBus===b.id?'selected':''}" onclick="selectBus(${b.id},true)"><div class="bus-avatar">🚌</div><div class="bus-list-copy"><b>${esc(b.bus_no)}</b><span>${esc(b.route_name||'Route not assigned')}</span></div><span class="gps-tag ${statusClass(b.tracking_status)}">${esc(b.tracking_status)}</span></div>`).join('')||'<div class="empty-state">No matching buses.</div>'}
-function startDemoBusMotion(bus){
-  if(!trackingMap||!bus)return;const id=bus.id;
+async function startDemoBusMotion(bus){
+  if(!trackingMap||!bus)return;
+  const id=bus.id;
   if(demoMarkers[id]){trackingMap.removeLayer(demoMarkers[id].marker);trackingMap.removeLayer(demoMarkers[id].routeLine);delete demoMarkers[id]}
   if(demoAnimation){cancelAnimationFrame(demoAnimation);demoAnimation=null}
-  // Illustrative campus loop only; it is not a verified road route or real GPS.
-  const path=[[8.2436,77.6058],[8.2450,77.6080],[8.2461,77.6102],[8.2447,77.6121],[8.2424,77.6110],[8.2412,77.6088],[8.2419,77.6064],[8.2436,77.6058]];
-  const routeLine=L.polyline(path,{color:'#e5a126',weight:5,opacity:.82,dashArray:'9 8',lineCap:'round'}).addTo(trackingMap);
-  const icon=L.divIcon({className:'',html:`<div class="bus-map-marker selected demo">🚌 ${esc(bus.bus_no)} <small>DEMO</small></div>`,iconSize:null,iconAnchor:[44,19]});
-  const marker=L.marker(path[0],{icon,zIndexOffset:1200}).addTo(trackingMap).bindPopup(`<div class="popup-bus"><b>${esc(bus.bus_no)} · DEMO PREVIEW</b><p>Illustrative campus loop only. Not a verified road route and not real GPS. Connect a GPS device or driver sharing for accurate tracking.</p></div>`).openPopup();
-  demoMarkers[id]={marker,routeLine};if($('follow-bus')?.checked)trackingMap.fitBounds(routeLine.getBounds().pad(.25));$('map-selected-label').textContent=bus.bus_no+' · DEMO PREVIEW (not live GPS)';
-  const lengths=[];let total=0;for(let i=0;i<path.length-1;i++){const a=path[i],b=path[i+1],len=Math.hypot((b[0]-a[0])*Math.cos((a[0]+b[0])*Math.PI/360),b[1]-a[1]);lengths.push(len);total+=len;}
-  const started=performance.now(),duration=24000;
-  function frame(now){if(selectedBus!==id||!demoMarkers[id])return;const progress=((now-started)%duration)/duration;let target=progress*total,seg=0;while(seg<lengths.length-1&&target>lengths[seg]){target-=lengths[seg];seg++}const t=lengths[seg]?target/lengths[seg]:0;const a=path[seg],b=path[seg+1];const lat=a[0]+(b[0]-a[0])*t,lng=a[1]+(b[1]-a[1])*t;marker.setLatLng([lat,lng]);if($('follow-bus')?.checked&&trackingMap.getZoom()>=13)trackingMap.panTo([lat,lng],{animate:false});demoAnimation=requestAnimationFrame(frame)}
+  let path=[], routeLabel='ILLUSTRATIVE PREVIEW', isRoadRoute=false;
+  // Use configured route-stop coordinates and a road-routing service when available.
+  try{
+    if(bus.route_id){
+      const routeData=await getJSON('/api/routes');
+      const waypoints=(routeData.stops||[]).filter(s=>Number(s.route_id)===Number(bus.route_id)&&Number.isFinite(Number(s.lat))&&Number.isFinite(Number(s.lng))).sort((a,b)=>Number(a.sequence)-Number(b.sequence));
+      if(waypoints.length>=2){
+        const coords=waypoints.map(s=>Number(s.lng)+','+Number(s.lat)).join(';');
+        const response=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson&steps=false');
+        if(response.ok){
+          const roadData=await response.json();
+          const coordinates=roadData.routes?.[0]?.geometry?.coordinates;
+          if(coordinates?.length>2){path=coordinates.map(c=>[c[1],c[0]]);routeLabel='ROAD ROUTE PREVIEW';isRoadRoute=true}
+        }
+      }
+    }
+  }catch(_){/* A network or routing-service failure falls back to a labelled illustrative preview. */}
+  if(!isRoadRoute){
+    // Only a fallback illustration; these coordinates are not verified campus roads.
+    path=[[8.2436,77.6058],[8.2450,77.6080],[8.2461,77.6102],[8.2447,77.6121],[8.2424,77.6110],[8.2412,77.6088],[8.2419,77.6064],[8.2436,77.6058]];
+  }
+  const routeLine=L.polyline(path,{color:isRoadRoute?'#2878e8':'#e5a126',weight:6,opacity:.88,dashArray:isRoadRoute?null:'9 8',lineCap:'round',lineJoin:'round'}).addTo(trackingMap);
+  const icon=L.divIcon({className:'',html:`<div class="bus-map-marker selected demo">🚌 ${esc(bus.bus_no)} <small>PREVIEW</small></div>`,iconSize:null,iconAnchor:[44,19]});
+  const marker=L.marker(path[0],{icon,zIndexOffset:1200}).addTo(trackingMap).bindPopup(`<div class="popup-bus"><b>${esc(bus.bus_no)} · ${routeLabel}</b><p>${isRoadRoute?'Animated along the road route generated from this bus route’s configured stops. This is a route preview, not live GPS.':'No usable route-stop coordinates were found. This is an illustrative preview only, not a verified road route or live GPS.'}</p></div>`).openPopup();
+  demoMarkers[id]={marker,routeLine};
+  if($('follow-bus')?.checked)trackingMap.fitBounds(routeLine.getBounds().pad(.18));
+  $('map-selected-label').textContent=bus.bus_no+' · '+routeLabel+' (not live GPS)';
+  const lengths=[];let total=0;
+  for(let i=0;i<path.length-1;i++){
+    const a=path[i],b=path[i+1];
+    const len=Math.hypot((b[0]-a[0])*Math.cos((a[0]+b[0])*Math.PI/360),b[1]-a[1]);
+    lengths.push(len);total+=len;
+  }
+  const started=performance.now(),duration=Math.max(35000,Math.min(90000,total*180000));
+  function frame(now){
+    if(selectedBus!==id||!demoMarkers[id])return;
+    const progress=((now-started)%duration)/duration;
+    let target=progress*total,seg=0;
+    while(seg<lengths.length-1&&target>lengths[seg]){target-=lengths[seg];seg++}
+    const t=lengths[seg]?target/lengths[seg]:0,a=path[seg],b=path[seg+1];
+    marker.setLatLng([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);
+    if($('follow-bus')?.checked&&trackingMap.getZoom()>=13)trackingMap.panTo(marker.getLatLng(),{animate:false});
+    demoAnimation=requestAnimationFrame(frame);
+  }
   demoAnimation=requestAnimationFrame(frame);
 }
 function selectBus(id,focus=false){clearHistoryOverlay();selectedBus=Number(id);const b=buses.find(x=>x.id===selectedBus);if(!b)return;renderBusList();renderSelectedDetail();upsertMarkers('tracking',trackingMap);const hasGPS=b.lat!==null&&b.lat!==undefined&&b.lng!==null&&b.lng!==undefined&&Number.isFinite(Number(b.lat))&&Number.isFinite(Number(b.lng));$('map-selected-label').textContent=b.bus_no+' · '+b.tracking_status;if(hasGPS){if(demoMarkers[b.id]){trackingMap?.removeLayer(demoMarkers[b.id].marker);trackingMap?.removeLayer(demoMarkers[b.id].routeLine);delete demoMarkers[b.id]}if(demoAnimation){cancelAnimationFrame(demoAnimation);demoAnimation=null}if(focus&&trackingMap){if($('follow-bus').checked)trackingMap.setView([b.lat,b.lng],Math.max(trackingMap.getZoom(),14));const m=markers.tracking[b.id];if(m)m.openPopup()}}else if(focus){if(!trackingMap)trackingMap=initTrackingMap();if(trackingMap){startDemoBusMotion(b)}else{toast('Map is unavailable. Please check your internet connection.','error')}}if(focus&&hasGPS)showHistory(selectedBus)}
