@@ -231,3 +231,54 @@ table td{font-size:11px;color:#554b5d}
 
 /* Configured route stop pins */
 .leaflet-interactive{cursor:pointer}.leaflet-popup-content{line-height:1.55}.map-canvas .leaflet-control-attribution{font-size:9px}
+
+/* Live tracking refresh: focused single-bus map and cleaner transport console */
+#view-tracking .page-heading{margin-bottom:18px}
+#view-tracking .tracking-toolbar{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e6ecf5;border-radius:13px;padding:11px 13px;margin-bottom:14px;box-shadow:0 6px 22px rgba(25,48,82,.04)}
+#view-tracking .tracking-toolbar .search-field{flex:1;min-width:180px}
+#view-tracking .tracking-toolbar select{height:36px;border:1px solid #e4eaf2;border-radius:8px;background:#fbfcff;color:#46556d;padding:0 10px;font-size:10px;min-width:125px}
+#view-tracking .check-label{font-size:10px;color:#6d7b91;white-space:nowrap}
+#view-tracking .tracking-layout{grid-template-columns:minmax(0,1.8fr) minmax(310px,.72fr);gap:16px;align-items:stretch}
+#view-tracking .tracking-map-panel,#view-tracking .bus-list-panel{border:1px solid #e4eaf2;border-radius:15px;box-shadow:0 10px 30px rgba(27,47,78,.06);background:#fff}
+#view-tracking .map-topline{min-height:54px;padding:12px 16px;background:linear-gradient(110deg,#f6f9ff,#fff);border-bottom:1px solid #eaf0f7}
+#view-tracking .map-live-indicator{color:#315b9f}
+#view-tracking .map-live-indicator i{background:#3478f6;box-shadow:0 0 0 4px #3478f61c}
+#view-tracking #map-selected-label{font-size:10px;font-weight:700;color:#8290a4}
+#view-tracking .map-mode{background:#eaf0fa}
+#view-tracking .map-mode button{padding:7px 11px}
+#view-tracking .map-mode button.active{background:#2f67e8;color:#fff;box-shadow:0 3px 8px #2f67e833}
+#view-tracking .tracking-canvas{height:clamp(430px,calc(100vh - 330px),760px);min-height:430px;border-radius:0 0 12px 12px}
+#view-tracking .map-footnote{background:#fbfcff;padding:11px 15px}
+#view-tracking .bus-list-panel{max-height:calc(100vh - 230px);min-height:550px}
+#view-tracking .bus-list-panel .panel-header{padding:17px 16px;background:#fff}
+#view-tracking .bus-list-panel .panel-header h3{font-size:14px}
+#view-tracking .bus-list{padding:8px 12px;max-height:250px;flex:0 0 auto}
+#view-tracking .bus-list-item{padding:12px 9px;margin:3px 0;border-radius:11px;transition:background .16s,border-color .16s}
+#view-tracking .bus-list-item.selected{background:#edf4ff;border-color:#cbdcff;box-shadow:inset 3px 0 #3474f4}
+#view-tracking .bus-list-item .bus-avatar{width:38px;height:38px;border-radius:12px}
+#view-tracking .selected-bus-detail{padding:16px;background:linear-gradient(180deg,#fbfcff,#fff);border-top:1px solid #e8edf5}
+#view-tracking .selected-title{padding-bottom:12px;border-bottom:1px solid #e9eef6}
+#view-tracking .selected-title .bus-avatar{width:42px;height:42px;border-radius:13px}
+#view-tracking .selected-title h3{font-size:15px;color:#1e355b}
+#view-tracking .selected-title p{font-size:10px}
+#view-tracking .detail-grid{gap:8px}
+#view-tracking .detail-cell{border-radius:10px;padding:11px;background:#fff;box-shadow:0 2px 8px rgba(35,57,89,.025)}
+#view-tracking .detail-cell b{font-size:11px;color:#263c60}
+#view-tracking .selected-bus-detail .btn{border-radius:9px}
+#view-tracking .empty-state{padding:22px 14px;color:#8795aa;font-size:11px}
+#view-tracking .joy-bus-icon .bus-map-marker.selected{background:#1456c7;border:2px solid #fff;box-shadow:0 0 0 5px #236be82b,0 8px 20px #102b4b55}
+#view-tracking .joy-bus-icon .bus-map-marker small{background:#eaf2ff;color:#1757b9}
+#view-tracking .leaflet-control-zoom a{color:#25446f}
+@media(max-width:1100px){
+ #view-tracking .tracking-layout{grid-template-columns:minmax(0,1fr)}
+ #view-tracking .bus-list-panel{max-height:none;min-height:0}
+ #view-tracking .bus-list{max-height:260px}
+ #view-tracking .tracking-canvas{height:55vh;min-height:360px}
+}
+@media(max-width:680px){
+ #view-tracking .tracking-toolbar{flex-wrap:wrap}
+ #view-tracking .tracking-toolbar .search-field{flex-basis:100%}
+ #view-tracking .tracking-toolbar select{flex:1;min-width:0}
+ #view-tracking .check-label{width:100%}
+ #view-tracking .tracking-canvas{height:52vh;min-height:330px}
+}

@@ -31,11 +31,13 @@ function initMap(which){
  if(isOverview)overviewMap=map;else{trackingMap=map;tileLayers={standard,aerial};}
  standard.addTo(map);
  map.whenReady(()=>{setTimeout(()=>map.invalidateSize(),100);renderMapReferenceLayers(which,map)});
+ if(!isOverview)map.on('click',()=>{if(selectedBus!==null)clearBusSelection()});
  return map;
 }
 function renderMapReferenceLayers(which,map){
  if(!map||!window.L)return;
  if(referenceLayers[which])map.removeLayer(referenceLayers[which]);
+ if(which==='tracking'){referenceLayers[which]=null;return;}
  const group=L.layerGroup();
  L.marker([8.2436,77.6058]).addTo(group).bindPopup('<b>JOY University campus reference</b><br>Reference point only; this is not a live bus position.');
  const mapped=(stops||[]).filter(s=>s.lat!==null&&s.lat!==undefined&&s.lat!==''&&s.lng!==null&&s.lng!==undefined&&s.lng!==''&&Number.isFinite(Number(s.lat))&&Number.isFinite(Number(s.lng)));
@@ -51,7 +53,7 @@ function gpsBearing(a,b){const rad=x=>x*Math.PI/180,lat1=rad(a.lat),lat2=rad(b.l
 function upsertMarkers(mapName,map){
  if(!map)return;
  const holder=markers[mapName];
- const visible=buses.filter(b=>(mapName!=='tracking'||selectedBus===null||(Number(b.id)===Number(selectedBus)&&b.tracking_status==='LIVE GPS'))&&b.lat!==null&&b.lat!==undefined&&b.lng!==null&&b.lng!==undefined&&Number.isFinite(Number(b.lat))&&Number.isFinite(Number(b.lng)));
+ const visible=buses.filter(b=>(mapName!=='tracking'||(selectedBus!==null&&Number(b.id)===Number(selectedBus)&&b.tracking_status==='LIVE GPS'))&&b.lat!==null&&b.lat!==undefined&&b.lng!==null&&b.lng!==undefined&&Number.isFinite(Number(b.lat))&&Number.isFinite(Number(b.lng)));
  visible.forEach(b=>{
   const key=b.id,ll={lat:Number(b.lat),lng:Number(b.lng)};
   if(!holder[key]){
@@ -146,25 +148,33 @@ async function selectBus(id,focus=false){
  }
 }
 function renderSelectedDetail(){const b=buses.find(x=>x.id===selectedBus);if(!b){$('selected-bus-detail').innerHTML='<div class="empty-state">Choose a bus to see details.</div>';return}$('selected-bus-detail').innerHTML=`<div class="selected-title"><div class="bus-avatar">🚌</div><div><h3>${esc(b.bus_no)}</h3><p>${esc(b.route_name||'Route not assigned')}</p></div><span class="gps-tag ${statusClass(b.tracking_status)}">${esc(b.tracking_status)}</span></div><div class="detail-grid"><div class="detail-cell"><span>VEHICLE STATUS</span><b>${esc(b.status)}</b></div><div class="detail-cell"><span>SPEED</span><b>${b.speed!=null?Math.round(b.speed*3.6)+' km/h':(demoMarkers[b.id]?.speedKmh?demoMarkers[b.id].speedKmh+' km/h (preview)':'Unavailable')}</b></div><div class="detail-cell"><span>LAST UPDATE</span><b>${esc(formatAge(b.age_seconds))}</b></div><div class="detail-cell"><span>DRIVER</span><b>${esc(b.driver_name||'Not assigned')}</b></div><div class="detail-cell"><span>CAPACITY</span><b>${b.capacity} seats</b></div><div class="detail-cell"><span>ETA</span><b>Unavailable</b></div></div><p style="font-size:9px;color:#9aa4b3;line-height:1.6;margin:12px 0 0">${b.tracking_status==='LIVE GPS'?'Device-reported GPS.':b.tracking_status==='STALE'?'Last known position is stale and is not live.':'No verified current GPS received. ETA is withheld.'}</p><button class="btn btn-secondary" style="width:100%;margin-top:12px" onclick="showHistory(${b.id})">View recent GPS history</button>`}
-function showFleet(){
+function clearBusSelection(){
+ clearHistoryOverlay();
  Object.keys(demoMarkers).forEach(k=>{const d=demoMarkers[k];if(d.marker)trackingMap?.removeLayer(d.marker);if(d.routeLine)trackingMap?.removeLayer(d.routeLine);delete demoMarkers[k]});
  if(demoAnimation){cancelAnimationFrame(demoAnimation);demoAnimation=null}
- selectedBus=null;renderBusList();renderSelectedDetail();upsertMarkers('tracking',trackingMap);fitFleet();
+ Object.keys(markers.tracking).forEach(k=>{if(trackingMap)trackingMap.removeLayer(markers.tracking[k]);delete markers.tracking[k]});
+ selectedBus=null;
+ renderBusList();renderSelectedDetail();
+ if($('map-selected-label'))$('map-selected-label').textContent='Select one bus to view its location and route';
+ if(trackingMap)trackingMap.setView([8.2436,77.6058],12);
 }
+function showFleet(){clearBusSelection()}
 function fitFleet(){if(!trackingMap)return;const pts=buses.filter(b=>b.lat!==null&&b.lat!==undefined&&b.lng!==null&&b.lng!==undefined&&Number.isFinite(Number(b.lat))&&Number.isFinite(Number(b.lng))).map(b=>[Number(b.lat),Number(b.lng)]);if(pts.length)trackingMap.fitBounds(pts,{padding:[30,30],maxZoom:14});else trackingMap.setView([8.2436,77.6058],13)}
-let historyOverlay=null,historyPlaybackFrame=null;
-function clearHistoryOverlay(){if(historyPlaybackFrame)cancelAnimationFrame(historyPlaybackFrame);historyPlaybackFrame=null;if(historyOverlay&&trackingMap){historyOverlay.forEach(layer=>trackingMap.removeLayer(layer))}historyOverlay=null}
+let historyOverlay=null,historyPlaybackFrame=null,historyRequestToken=0;
+function clearHistoryOverlay(){historyRequestToken++;if(historyPlaybackFrame)cancelAnimationFrame(historyPlaybackFrame);historyPlaybackFrame=null;if(historyOverlay&&trackingMap){historyOverlay.forEach(layer=>trackingMap.removeLayer(layer))}historyOverlay=null}
 async function showHistory(id){
+ const requestToken=++historyRequestToken;
  try{
   const data=await getJSON(`/api/tracking/buses/${id}/history`);
+  if(requestToken!==historyRequestToken||Number(id)!==Number(selectedBus))return;
   if(!data.length){toast('No GPS history has been received for this bus yet.','error');return}
   const points=data.filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lng))).sort((a,b)=>new Date(a.recorded_at)-new Date(b.recorded_at));
   if(!points.length){toast('GPS history contains no valid map coordinates.','error');return}
   const map=initTrackingMap();if(!map)return;clearHistoryOverlay();
   const latlngs=points.map(p=>[Number(p.lat),Number(p.lng)]),layers=[];
-  if(latlngs.length>1){const line=L.polyline(latlngs,{color:'#7b3db1',weight:5,opacity:.82,dashArray:'8 7'}).addTo(map);layers.push(line)}
+  if(latlngs.length>1){const line=L.polyline(latlngs,{color:'#2563eb',weight:4,opacity:.82,lineCap:'round',lineJoin:'round'}).addTo(map);layers.push(line)}
   const first=L.circleMarker(latlngs[0],{radius:7,color:'#fff',weight:2,fillColor:'#16a36a',fillOpacity:1}).addTo(map).bindPopup('Oldest recorded GPS point<br>'+esc(points[0].recorded_at));
-  const last=L.circleMarker(latlngs[latlngs.length-1],{radius:7,color:'#fff',weight:2,fillColor:'#d44b4b',fillOpacity:1}).addTo(map).bindPopup('Latest recorded GPS point<br>'+esc(points[points.length-1].recorded_at));
+  const last=L.circleMarker(latlngs[latlngs.length-1],{radius:7,color:'#fff',weight:2,fillColor:'#2563eb',fillOpacity:1}).addTo(map).bindPopup('Latest recorded GPS point<br>'+esc(points[points.length-1].recorded_at));
   layers.push(first,last);
   const replay=L.circleMarker(latlngs[0],{radius:9,color:'#35105f',weight:3,fillColor:'#b98ad9',fillOpacity:1}).addTo(map);layers.push(replay);
   historyOverlay=layers;map.fitBounds(latlngs,{padding:[36,36],maxZoom:16});
