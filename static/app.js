@@ -1,5 +1,5 @@
 const role=String(document.body.dataset.role||'STUDENT').trim().toUpperCase(), csrf=document.body.dataset.csrf||'';
-let buses=[], routes=[], stops=[], selectedBus=null, overviewMap=null, trackingMap=null, referenceLayers={overview:null,tracking:null}, markers={overview:{},tracking:{}}, demoMarkers={}, demoAnimation=null, tileLayers={}, refreshTimer=null, modalKind='bus', driverWatch=null, viewHistory=[role==='ADMIN'?'overview':role==='STUDENT'?'student-dashboard':'driver-dashboard'];
+let buses=[], routes=[], stops=[], selectedBus=null, showAllTracking=false, overviewMap=null, trackingMap=null, referenceLayers={overview:null,tracking:null}, markers={overview:{},tracking:{}}, demoMarkers={}, demoAnimation=null, tileLayers={}, refreshTimer=null, modalKind='bus', driverWatch=null, viewHistory=[role==='ADMIN'?'overview':role==='STUDENT'?'student-dashboard':'driver-dashboard'];
 const $=id=>document.getElementById(id); const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const statusClass=s=>s==='LIVE GPS'?'live':s==='STALE'?'stale':s==='DEMO GPS'?'demo':'none';
 function toast(msg,type='success'){const box=document.createElement('div');box.className='toast '+(type==='error'?'error':'success');box.textContent=msg;$('toast-stack').appendChild(box);setTimeout(()=>box.remove(),4200)}
@@ -53,7 +53,7 @@ function gpsBearing(a,b){const rad=x=>x*Math.PI/180,lat1=rad(a.lat),lat2=rad(b.l
 function upsertMarkers(mapName,map){
  if(!map)return;
  const holder=markers[mapName];
- const visible=buses.filter(b=>(mapName!=='tracking'||(selectedBus!==null&&Number(b.id)===Number(selectedBus)&&b.tracking_status==='LIVE GPS'))&&b.lat!==null&&b.lat!==undefined&&b.lng!==null&&b.lng!==undefined&&Number.isFinite(Number(b.lat))&&Number.isFinite(Number(b.lng)));
+ const visible=buses.filter(b=>(mapName!=='tracking'||(showAllTracking||(selectedBus!==null&&Number(b.id)===Number(selectedBus)&&b.tracking_status==='LIVE GPS')))&&b.lat!==null&&b.lat!==undefined&&b.lng!==null&&b.lng!==undefined&&Number.isFinite(Number(b.lat))&&Number.isFinite(Number(b.lng)));
  visible.forEach(b=>{
   const key=b.id,ll={lat:Number(b.lat),lng:Number(b.lng)};
   if(!holder[key]){
@@ -133,7 +133,7 @@ async function selectBus(id,focus=false){
  clearHistoryOverlay();
  Object.keys(demoMarkers).forEach(k=>{const d=demoMarkers[k];if(d.marker)trackingMap?.removeLayer(d.marker);if(d.routeLine)trackingMap?.removeLayer(d.routeLine);delete demoMarkers[k]});
  if(demoAnimation){cancelAnimationFrame(demoAnimation);demoAnimation=null}
- selectedBus=Number(id);const bus=buses.find(x=>Number(x.id)===selectedBus);if(!bus)return;
+ showAllTracking=false;selectedBus=Number(id);const bus=buses.find(x=>Number(x.id)===selectedBus);if(!bus)return;
  if(!trackingMap)trackingMap=initTrackingMap();trackingMap?.invalidateSize();
  Object.keys(markers.tracking).forEach(k=>{if(Number(k)!==selectedBus||bus.tracking_status!=='LIVE GPS'){trackingMap?.removeLayer(markers.tracking[k]);delete markers.tracking[k]}});
  renderBusList();renderSelectedDetail();
@@ -153,12 +153,20 @@ function clearBusSelection(){
  Object.keys(demoMarkers).forEach(k=>{const d=demoMarkers[k];if(d.marker)trackingMap?.removeLayer(d.marker);if(d.routeLine)trackingMap?.removeLayer(d.routeLine);delete demoMarkers[k]});
  if(demoAnimation){cancelAnimationFrame(demoAnimation);demoAnimation=null}
  Object.keys(markers.tracking).forEach(k=>{if(trackingMap)trackingMap.removeLayer(markers.tracking[k]);delete markers.tracking[k]});
- selectedBus=null;
+ selectedBus=null;showAllTracking=false;
  renderBusList();renderSelectedDetail();
  if($('map-selected-label'))$('map-selected-label').textContent='Select one bus to view its location and route';
  if(trackingMap)trackingMap.setView([8.2436,77.6058],12);
 }
 function showFleet(){clearBusSelection()}
+function showAllBuses(){
+ clearHistoryOverlay();
+ Object.keys(demoMarkers).forEach(k=>{const d=demoMarkers[k];if(d.marker)trackingMap?.removeLayer(d.marker);if(d.routeLine)trackingMap?.removeLayer(d.routeLine);delete demoMarkers[k]});
+ if(demoAnimation){cancelAnimationFrame(demoAnimation);demoAnimation=null}
+ selectedBus=null;showAllTracking=true;renderBusList();renderSelectedDetail();
+ if($('map-selected-label'))$('map-selected-label').textContent='All buses · displaying available reported locations';
+ const map=initTrackingMap();if(map){upsertMarkers('tracking',map);fitFleet()}
+}
 function fitFleet(){if(!trackingMap)return;const pts=buses.filter(b=>b.lat!==null&&b.lat!==undefined&&b.lng!==null&&b.lng!==undefined&&Number.isFinite(Number(b.lat))&&Number.isFinite(Number(b.lng))).map(b=>[Number(b.lat),Number(b.lng)]);if(pts.length)trackingMap.fitBounds(pts,{padding:[30,30],maxZoom:14});else trackingMap.setView([8.2436,77.6058],13)}
 let historyOverlay=null,historyPlaybackFrame=null,historyRequestToken=0;
 function clearHistoryOverlay(){historyRequestToken++;if(historyPlaybackFrame)cancelAnimationFrame(historyPlaybackFrame);historyPlaybackFrame=null;if(historyOverlay&&trackingMap){historyOverlay.forEach(layer=>trackingMap.removeLayer(layer))}historyOverlay=null}
